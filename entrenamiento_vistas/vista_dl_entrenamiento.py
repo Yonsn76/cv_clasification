@@ -1,11 +1,104 @@
 # vista_dl_entrenamiento.py
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
-                             QPushButton, QFrame, QProgressBar, QTextEdit,
-                             QComboBox, QSpinBox, QCheckBox, QGroupBox,
-                             QGridLayout, QSlider, QDoubleSpinBox, QLineEdit, QListWidget, QFileDialog, QMessageBox) # Añadido QMessageBox
-from PyQt6.QtCore import Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QFont, QPixmap
+from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
+                             QPushButton, QProgressBar, QTextEdit,
+                             QComboBox, QGroupBox, QGridLayout, QLineEdit,
+                             QListWidget, QFileDialog, QMessageBox)
+from PyQt6.QtCore import Qt, pyqtSignal, QThread
+from PyQt6.QtGui import QFont
 import os
+import PyPDF2
+from models.deep_learning_classifier import DeepLearningClassifier
+
+
+class DLTrainingWorker(QThread):
+    """Worker thread para entrenamiento Deep Learning en segundo plano"""
+    progress_updated = pyqtSignal(int, str)  # progreso, mensaje
+    epoch_updated = pyqtSignal(int, int, dict)  # época actual, total épocas, métricas
+    training_completed = pyqtSignal(dict)  # resultados
+    training_failed = pyqtSignal(str)  # error
+
+    def __init__(self, profession_folders, model_name, model_type, epochs, batch_size):
+        super().__init__()
+        self.profession_folders = profession_folders
+        self.model_name = model_name
+        self.model_type = model_type
+        self.epochs = epochs
+        self.batch_size = batch_size
+        self.classifier = DeepLearningClassifier()
+
+    def extract_text_from_pdf(self, pdf_path):
+        """Extrae texto de un archivo PDF"""
+        try:
+            with open(pdf_path, 'rb') as file:
+                reader = PyPDF2.PdfReader(file)
+                text = ""
+                for page in reader.pages:
+                    text += page.extract_text() + "\n"
+                return text.strip()
+        except Exception as e:
+            print(f"Error extrayendo texto de {pdf_path}: {e}")
+            return ""
+
+    def run(self):
+        """Ejecuta el entrenamiento de Deep Learning"""
+        try:
+            self.progress_updated.emit(10, "Preparando datos para Deep Learning...")
+
+            # Preparar datos de CVs
+            cv_data = []
+            total_files = sum(len([f for f in os.listdir(folder) if f.lower().endswith('.pdf')])
+                            for folder in self.profession_folders.values())
+
+            processed_files = 0
+
+            for profession, folder_path in self.profession_folders.items():
+                self.progress_updated.emit(20 + (processed_files * 40 // total_files),
+                                         f"Procesando CVs de {profession}...")
+
+                for filename in os.listdir(folder_path):
+                    if filename.lower().endswith('.pdf'):
+                        file_path = os.path.join(folder_path, filename)
+                        text = self.extract_text_from_pdf(file_path)
+
+                        if text:
+                            cv_data.append({
+                                'text': text,
+                                'profession': profession,
+                                'filename': filename,
+                                'status': 'success'
+                            })
+
+                        processed_files += 1
+
+            self.progress_updated.emit(70, f"Entrenando modelo {self.model_type.upper()}...")
+
+            # Entrenar modelo
+            results = self.classifier.train_model(
+                cv_data,
+                model_type=self.model_type,
+                epochs=self.epochs,
+                batch_size=self.batch_size
+            )
+
+            if results.get('success', False):
+                self.progress_updated.emit(90, "Guardando modelo Deep Learning...")
+
+                # Guardar modelo
+                save_success = self.classifier.save_model(self.model_name)
+
+                if save_success:
+                    results['model_saved'] = True
+                    results['model_name'] = self.model_name
+                    self.progress_updated.emit(100, "Entrenamiento Deep Learning completado!")
+                    self.training_completed.emit(results)
+                else:
+                    self.training_failed.emit("Error guardando el modelo Deep Learning")
+            else:
+                self.training_failed.emit(results.get('error', 'Error desconocido durante el entrenamiento'))
+
+        except Exception as e:
+            self.training_failed.emit(f"Error durante el entrenamiento DL: {str(e)}")
+
 
 class VistaDLEntrenamiento(QWidget):
     """Vista para configurar y entrenar modelos de Deep Learning"""
@@ -74,39 +167,26 @@ class VistaDLEntrenamiento(QWidget):
         content_layout = QVBoxLayout(main_content)
         content_layout.setSpacing(25)
 
-        # Sección de Configuración de Datos y Profesión
-        self.create_data_profession_config_section(content_layout)
-
-        # Sección para Nombre del Modelo
-        self.create_model_name_section(content_layout)
-        
-        # Sección de arquitectura de red
-        self.create_architecture_section(content_layout)
-        
-        # Sección de hiperparámetros
-        self.create_hyperparameters_section(content_layout)
-        
-        # Sección de entrenamiento
-        self.create_training_section(content_layout)
-        
-        # Sección de progreso
-        self.create_progress_section(content_layout)
-        
-        # Botones de acción
-        self.create_action_buttons(content_layout)
+        # Secciones principales
+        self.create_profession_config(content_layout)
+        self.create_training_config(content_layout)
+        self.create_training_log(content_layout)
         
         layout.addWidget(main_content)
-        
-        
-    def create_model_name_section(self, parent_layout):
-        """Crea la sección para ingresar el nombre del modelo"""
-        group = QGroupBox("2. Nombre del Modelo a Entrenar")
+
+        # Inicializar estado
+        self.profession_folders = {}
+        self.selected_folder = None
+
+    def create_profession_config(self, parent_layout):
+        """Crea la sección de configuración de profesiones y datos"""
+        group = QGroupBox("1. Configuración de Profesiones y Datos")
         group.setStyleSheet("""
             QGroupBox {
                 font-size: 14px;
                 font-weight: bold;
                 color: #E0E0E0;
-                border: 2px solid #8E44AD; /* Mismo color que en ML para consistencia */
+                border: 2px solid #1ABC9C;
                 border-radius: 8px;
                 margin-top: 10px;
                 padding-top: 10px;
@@ -117,201 +197,16 @@ class VistaDLEntrenamiento(QWidget):
                 padding: 0 5px 0 5px;
             }
         """)
-        
-        layout = QHBoxLayout(group)
-        layout.setSpacing(10)
-
-        label_model_name = QLabel("Nombre del Modelo:")
-        label_model_name.setStyleSheet("color: #BDC3C7; font-size: 13px;")
-        layout.addWidget(label_model_name)
-
-        self.line_edit_model_name_dl = QLineEdit()
-        self.line_edit_model_name_dl.setPlaceholderText("Ej: ModeloImagenesCNN, ModeloTextosLSTM")
-        self.line_edit_model_name_dl.setStyleSheet("""
-            QLineEdit {
-                background-color: #34495E;
-                color: white;
-                border: 1px solid #8E44AD;
-                border-radius: 5px;
-                padding: 8px;
-                font-size: 13px;
-            }
-        """)
-        layout.addWidget(self.line_edit_model_name_dl)
-        parent_layout.addWidget(group)
-
-    def create_architecture_section(self, parent_layout):
-        """Crea la sección de arquitectura de red neuronal"""
-        group = QGroupBox("3. Arquitectura de Red Neuronal") # Numeración actualizada
-        group.setStyleSheet("""
-            QGroupBox {
-                font-size: 14px;
-                font-weight: bold;
-                color: #E0E0E0;
-                border: 2px solid #E74C3C;
-                border-radius: 8px;
-                margin-top: 10px;
-                padding-top: 10px;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 5px 0 5px;
-            }
-        """)
-        
-        layout = QGridLayout(group)
+        layout = QVBoxLayout(group)
         layout.setSpacing(15)
-        
-        # Tipo de red
-        layout.addWidget(QLabel("Tipo de red:"), 0, 0)
-        self.combo_red = QComboBox()
-        self.combo_red.addItems([
-            "Feedforward Neural Network",
-            "Convolutional Neural Network (CNN)",
-            "Recurrent Neural Network (RNN)",
-            "Long Short-Term Memory (LSTM)",
-            "Transformer",
-            "Autoencoder"
-        ])
-        self.combo_red.setStyleSheet("""
-            QComboBox {
-                background-color: #34495E;
-                color: white;
-                border: 1px solid #E74C3C;
-                border-radius: 5px;
-                padding: 8px;
-                font-size: 13px;
-            }
-            QComboBox QListView { 
-                background-color: #2C3E50; 
-                color: #ECF0F1; 
-                border: 1px solid #3498DB;
-                padding: 4px; 
-                outline: 0px; 
-            }
-            QComboBox QListView::item { 
-                background-color: transparent; 
-                color: #ECF0F1; 
-                min-height: 25px; 
-                padding: 0px 5px; 
-            }
-            QComboBox QListView::item:selected {
-                background-color: #4A6B8A; 
-                color: #ECF0F1; 
-            }
-            QComboBox QListView::item:hover {
-                background-color: #557CAC; 
-                color: #ECF0F1; 
-            }
-        """)
-        layout.addWidget(self.combo_red, 0, 1)
-        
-        # Número de capas ocultas
-        layout.addWidget(QLabel("Capas ocultas:"), 1, 0)
-        self.spin_capas = QSpinBox()
-        self.spin_capas.setRange(1, 20)
-        self.spin_capas.setValue(3)
-        self.spin_capas.setStyleSheet("""
-            QSpinBox {
-                background-color: #34495E;
-                color: white;
-                border: 1px solid #E74C3C;
-                border-radius: 5px;
-                padding: 5px;
-            }
-        """)
-        layout.addWidget(self.spin_capas, 1, 1)
-        
-        # Neuronas por capa
-        layout.addWidget(QLabel("Neuronas por capa:"), 2, 0)
-        self.spin_neuronas = QSpinBox()
-        self.spin_neuronas.setRange(16, 2048)
-        self.spin_neuronas.setValue(128)
-        self.spin_neuronas.setSingleStep(16)
-        self.spin_neuronas.setStyleSheet(self.spin_capas.styleSheet())
-        layout.addWidget(self.spin_neuronas, 2, 1)
-        
-        # Función de activación
-        layout.addWidget(QLabel("Activación:"), 3, 0)
-        self.combo_activacion = QComboBox()
-        self.combo_activacion.addItems(["ReLU", "Sigmoid", "Tanh", "Leaky ReLU", "ELU", "Swish"])
-        qss_combo_activacion_dl = """
-            QComboBox {
-                background-color: #34495E;
-                color: white;
-                border: 1px solid #E74C3C;
-                border-radius: 5px;
-                padding: 8px;
-                font-size: 13px;
-            }
-            QComboBox QListView { 
-                background-color: #2C3E50; 
-                color: #ECF0F1; 
-                border: 1px solid #3498DB; 
-                padding: 4px; 
-                outline: 0px; 
-            }
-            QComboBox QListView::item { 
-                background-color: transparent; 
-                color: #ECF0F1; 
-                min-height: 25px; 
-                padding: 0px 5px; 
-            }
-            QComboBox QListView::item:selected {
-                background-color: #4A6B8A; 
-                color: #ECF0F1; 
-            }
-            QComboBox QListView::item:hover {
-                background-color: #557CAC; 
-                color: #ECF0F1; 
-            }
-        """
-        self.combo_activacion.setStyleSheet(qss_combo_activacion_dl)
-        layout.addWidget(self.combo_activacion, 3, 1)
-        
-        # Aplicar estilos a las etiquetas
-        for i in range(layout.rowCount()):
-            item = layout.itemAtPosition(i, 0)
-            if item and item.widget() and isinstance(item.widget(), QLabel):
-                item.widget().setStyleSheet("color: #BDC3C7; font-size: 13px;")
-        
-        
-        parent_layout.addWidget(group)
 
-    def create_data_profession_config_section(self, parent_layout):
-        """Crea la sección de configuración de datos y profesión"""
-        group = QGroupBox("1. Configuración de Datos y Profesión")
-        group.setStyleSheet("""
-            QGroupBox {
-                font-size: 14px;
-                font-weight: bold;
-                color: #E0E0E0;
-                border: 2px solid #1ABC9C; /* Mismo color que en ML para consistencia */
-                border-radius: 8px;
-                margin-top: 10px;
-                padding-top: 10px;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 5px 0 5px;
-            }
-        """)
-        
-        layout = QGridLayout(group)
-        layout.setSpacing(15)
-        layout.setColumnStretch(1, 1)
-        layout.setColumnStretch(2, 1)
+        # Sección para agregar profesiones
+        add_layout = QGridLayout()
+        add_layout.setSpacing(10)
 
-        # Profesión Objetivo
-        label_profession = QLabel("Profesión Objetivo:")
-        label_profession.setStyleSheet("color: #BDC3C7; font-size: 13px;")
-        layout.addWidget(label_profession, 0, 0)
-        
-        self.line_edit_profession_dl = QLineEdit()
-        self.line_edit_profession_dl.setPlaceholderText("Ej: Científico de Datos")
-        self.line_edit_profession_dl.setStyleSheet("""
+        name_input = QLineEdit()
+        name_input.setPlaceholderText("Ej: Científico de Datos, Analista de IA")
+        name_input.setStyleSheet("""
             QLineEdit {
                 background-color: #34495E;
                 color: white;
@@ -321,52 +216,50 @@ class VistaDLEntrenamiento(QWidget):
                 font-size: 13px;
             }
         """)
-        layout.addWidget(self.line_edit_profession_dl, 0, 1, 1, 2)
 
-        # Carpeta de Datos
-        label_data_folder = QLabel("Carpeta de Datos:")
-        label_data_folder.setStyleSheet("color: #BDC3C7; font-size: 13px;")
-        layout.addWidget(label_data_folder, 1, 0)
-
-        self.line_edit_selected_folder_dl = QLineEdit()
-        self.line_edit_selected_folder_dl.setPlaceholderText("Seleccione una carpeta...")
-        self.line_edit_selected_folder_dl.setReadOnly(True)
-        self.line_edit_selected_folder_dl.setStyleSheet("""
-            QLineEdit {
-                background-color: #2C3E50; 
-                color: #BDC3C7;
-                border: 1px solid #1ABC9C;
+        btn_select_folder = QPushButton("📁 Seleccionar Carpeta de CVs")
+        btn_select_folder.setStyleSheet("""
+            QPushButton {
+                background-color: #3498DB;
+                color: white;
+                border: none;
                 border-radius: 5px;
-                padding: 8px;
-                font-size: 13px;
+                padding: 8px 12px;
+                font-size: 12px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #2980B9;
             }
         """)
-        layout.addWidget(self.line_edit_selected_folder_dl, 1, 1)
 
-        self.btn_select_folder_dl = QPushButton("Seleccionar Carpeta...")
-        self.btn_select_folder_dl.setStyleSheet("""
-            QPushButton { background-color: #3498DB; color: white; border: none; border-radius: 5px; padding: 8px 12px; font-size: 12px; font-weight: bold; }
-            QPushButton:hover { background-color: #2980B9; }
+        btn_add_profession = QPushButton("➕ Agregar Profesión")
+        btn_add_profession.setStyleSheet("""
+            QPushButton {
+                background-color: #2ECC71;
+                color: white;
+                border: none;
+                border-radius: 5px;
+                padding: 10px 15px;
+                font-size: 13px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #27AE60;
+            }
         """)
-        self.btn_select_folder_dl.clicked.connect(self._handle_select_folder_dl)
-        layout.addWidget(self.btn_select_folder_dl, 1, 2)
-        
-        # Botón para agregar la asociación
-        self.btn_add_profession_data_dl = QPushButton("Asociar Profesión y Carpeta")
-        self.btn_add_profession_data_dl.setStyleSheet("""
-            QPushButton { background-color: #2ECC71; color: white; border: none; border-radius: 5px; padding: 10px 15px; font-size: 13px; font-weight: bold; }
-            QPushButton:hover { background-color: #27AE60; }
-        """)
-        self.btn_add_profession_data_dl.clicked.connect(self._handle_add_profession_data_dl)
-        layout.addWidget(self.btn_add_profession_data_dl, 2, 1, 1, 2, alignment=Qt.AlignmentFlag.AlignCenter)
+        btn_add_profession.setEnabled(False)
 
-        # Lista de Datos Asociados
-        label_data_sources = QLabel("Datos Asociados (Profesión - Carpeta):")
-        label_data_sources.setStyleSheet("color: #BDC3C7; font-size: 13px; margin-top: 10px;")
-        layout.addWidget(label_data_sources, 3, 0, 1, 3)
+        add_layout.addWidget(QLabel("Nombre de Profesión:"), 0, 0)
+        add_layout.addWidget(name_input, 0, 1, 1, 2)
+        add_layout.addWidget(btn_select_folder, 1, 1)
+        add_layout.addWidget(btn_add_profession, 1, 2)
+        layout.addLayout(add_layout)
 
-        self.list_widget_data_sources_dl = QListWidget()
-        self.list_widget_data_sources_dl.setStyleSheet("""
+        # Lista de profesiones
+        list_widget = QListWidget()
+        list_widget.setMaximumHeight(180)
+        list_widget.setStyleSheet("""
             QListWidget {
                 background-color: #2C3E50;
                 color: #ECF0F1;
@@ -384,23 +277,44 @@ class VistaDLEntrenamiento(QWidget):
                 color: #2C3E50;
             }
         """)
-        layout.addWidget(self.list_widget_data_sources_dl, 4, 0, 1, 3)
+        layout.addWidget(QLabel("Profesiones y carpetas añadidas:"))
+        layout.addWidget(list_widget)
 
-        # Botón para quitar seleccionado
-        self.btn_remove_source_dl = QPushButton("Quitar Seleccionado")
-        self.btn_remove_source_dl.setStyleSheet("""
-            QPushButton { background-color: #E74C3C; color: white; border: none; border-radius: 5px; padding: 8px 12px; font-size: 12px; font-weight: bold; }
-            QPushButton:hover { background-color: #C0392B; }
+        btn_clear_professions = QPushButton("🗑️ Limpiar Lista de Profesiones")
+        btn_clear_professions.setStyleSheet("""
+            QPushButton {
+                background-color: #E74C3C;
+                color: white;
+                border: none;
+                border-radius: 5px;
+                padding: 8px 12px;
+                font-size: 12px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #C0392B;
+            }
         """)
-        self.btn_remove_source_dl.clicked.connect(self._handle_remove_source_dl)
-        layout.addWidget(self.btn_remove_source_dl, 5, 2, alignment=Qt.AlignmentFlag.AlignRight)
-        
+        layout.addWidget(btn_clear_professions, 0, Qt.AlignmentFlag.AlignRight)
+
+        # Guardar referencias
+        self.profession_name_input = name_input
+        self.btn_select_folder = btn_select_folder
+        self.btn_add_profession = btn_add_profession
+        self.profession_list = list_widget
+        self.btn_clear_professions = btn_clear_professions
+
+        # Conectar señales
+        btn_select_folder.clicked.connect(self.select_profession_folder)
+        btn_add_profession.clicked.connect(self.add_profession)
+        btn_clear_professions.clicked.connect(self.clear_professions)
+        name_input.textChanged.connect(lambda text: btn_add_profession.setEnabled(bool(text.strip()) and hasattr(self, 'selected_folder')))
+
         parent_layout.addWidget(group)
-        
-        
-    def create_hyperparameters_section(self, parent_layout):
-        """Crea la sección de hiperparámetros"""
-        group = QGroupBox("4. Hiperparámetros de Entrenamiento") # Numeración actualizada
+
+    def create_training_config(self, parent_layout):
+        """Crea la sección de configuración del modelo y entrenamiento"""
+        group = QGroupBox("2. Configuración del Modelo Deep Learning")
         group.setStyleSheet("""
             QGroupBox {
                 font-size: 14px;
@@ -417,68 +331,37 @@ class VistaDLEntrenamiento(QWidget):
                 padding: 0 5px 0 5px;
             }
         """)
-        
         layout = QGridLayout(group)
-        layout.setSpacing(15)
-        
-        # Learning rate
-        layout.addWidget(QLabel("Learning Rate:"), 0, 0)
-        self.spin_lr = QDoubleSpinBox()
-        self.spin_lr.setRange(0.0001, 1.0)
-        self.spin_lr.setValue(0.001)
-        self.spin_lr.setDecimals(4)
-        self.spin_lr.setSingleStep(0.0001)
-        self.spin_lr.setStyleSheet("""
-            QDoubleSpinBox {
+        layout.setSpacing(10)
+
+        # Nombre del modelo
+        layout.addWidget(QLabel("Nombre del modelo DL:"), 0, 0)
+        self.dl_model_name_input = QLineEdit()
+        self.dl_model_name_input.setPlaceholderText("Ej: modelo_dl_bert_multilingue")
+        self.dl_model_name_input.setStyleSheet("""
+            QLineEdit {
                 background-color: #34495E;
                 color: white;
                 border: 1px solid #9B59B6;
                 border-radius: 5px;
-                padding: 5px;
+                padding: 8px;
+                font-size: 13px;
             }
         """)
-        layout.addWidget(self.spin_lr, 0, 1)
-        
-        # Batch size
-        layout.addWidget(QLabel("Batch Size:"), 1, 0)
-        self.spin_batch = QSpinBox()
-        self.spin_batch.setRange(8, 512)
-        self.spin_batch.setValue(32)
-        self.spin_batch.setSingleStep(8)
-        self.spin_batch.setStyleSheet("""
-            QSpinBox {
-                background-color: #34495E;
-                color: white;
-                border: 1px solid #9B59B6;
-                border-radius: 5px;
-                padding: 5px;
-            }
-        """)
-        layout.addWidget(self.spin_batch, 1, 1)
-        
-        # Épocas
-        layout.addWidget(QLabel("Épocas:"), 2, 0)
-        self.spin_epocas = QSpinBox()
-        self.spin_epocas.setRange(10, 1000)
-        self.spin_epocas.setValue(100)
-        self.spin_epocas.setStyleSheet(self.spin_batch.styleSheet())
-        layout.addWidget(self.spin_epocas, 2, 1)
-        
-        # Dropout
-        layout.addWidget(QLabel("Dropout:"), 3, 0)
-        self.spin_dropout = QDoubleSpinBox()
-        self.spin_dropout.setRange(0.0, 0.9)
-        self.spin_dropout.setValue(0.2)
-        self.spin_dropout.setDecimals(2)
-        self.spin_dropout.setSingleStep(0.1)
-        self.spin_dropout.setStyleSheet(self.spin_lr.styleSheet())
-        layout.addWidget(self.spin_dropout, 3, 1)
-        
-        # Optimizador
-        layout.addWidget(QLabel("Optimizador:"), 4, 0)
-        self.combo_optimizador = QComboBox()
-        self.combo_optimizador.addItems(["Adam", "SGD", "RMSprop", "AdaGrad", "AdaDelta"])
-        self.combo_optimizador.setStyleSheet("""
+        layout.addWidget(self.dl_model_name_input, 0, 1, 1, 3)
+
+        # Tipo de arquitectura
+        layout.addWidget(QLabel("Tipo de arquitectura DL:"), 1, 0)
+        self.dl_model_type_combo = QComboBox()
+        dl_models = [
+            ("bert", "BERT (Transformer, Alta Precisión)"),
+            ("lstm", "LSTM (Red Neuronal Recurrente)"),
+            ("cnn", "CNN (Red Neuronal Convolucional para Texto)")
+        ]
+        for value, display_name in dl_models:
+            self.dl_model_type_combo.addItem(display_name, value)
+        self.dl_model_type_combo.setCurrentIndex(0)
+        self.dl_model_type_combo.setStyleSheet("""
             QComboBox {
                 background-color: #34495E;
                 color: white;
@@ -487,192 +370,63 @@ class VistaDLEntrenamiento(QWidget):
                 padding: 8px;
                 font-size: 13px;
             }
-            QComboBox QListView { 
-                background-color: #2C3E50; 
-                color: #ECF0F1; 
-                border: 1px solid #3498DB; 
-                padding: 4px; 
-                outline: 0px; 
+            QComboBox QListView {
+                background-color: #2C3E50;
+                color: #ECF0F1;
+                border: 1px solid #3498DB;
+                padding: 4px;
+                outline: 0px;
             }
-            QComboBox QListView::item { 
-                background-color: transparent; 
-                color: #ECF0F1; 
-                min-height: 25px; 
-                padding: 0px 5px; 
+            QComboBox QListView::item {
+                background-color: transparent;
+                color: #ECF0F1;
+                min-height: 25px;
+                padding: 0px 5px;
             }
             QComboBox QListView::item:selected {
-                background-color: #4A6B8A; 
-                color: #ECF0F1; 
+                background-color: #4A6B8A;
+                color: #ECF0F1;
             }
             QComboBox QListView::item:hover {
-                background-color: #557CAC; 
-                color: #ECF0F1; 
+                background-color: #557CAC;
+                color: #ECF0F1;
             }
         """)
-        layout.addWidget(self.combo_optimizador, 4, 1)
-        
-        # Aplicar estilos a las etiquetas
-        for i in range(layout.rowCount()):
-            item = layout.itemAtPosition(i, 0)
-            if item and item.widget() and isinstance(item.widget(), QLabel):
-                item.widget().setStyleSheet("color: #BDC3C7; font-size: 13px;")
-        
-        parent_layout.addWidget(group)
-        
-        
-    def create_training_section(self, parent_layout):
-        """Crea la sección de configuración de entrenamiento"""
-        # El comentario original decía create_training_section, pero la función se llamaba create_training_config_section
-        # Mantendré create_training_section para consistencia con init_ui
-        group = QGroupBox("5. Configuración de Entrenamiento Adicional") # Numeración actualizada
-        group.setStyleSheet("""
-            QGroupBox {
-                font-size: 14px;
-                font-weight: bold;
-                color: #E0E0E0;
-                border: 2px solid #F39C12;
-                border-radius: 8px;
-                margin-top: 10px;
-                padding-top: 10px;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 5px 0 5px;
-            }
-        """)
-        
-        layout = QVBoxLayout(group)
-        layout.setSpacing(15)
-        
-        # Checkboxes de opciones
-        options_layout = QGridLayout()
-        
-        self.check_early_stopping = QCheckBox("Early Stopping")
-        self.check_early_stopping.setChecked(True)
-        self.check_early_stopping.setStyleSheet("color: #BDC3C7; font-size: 13px;")
-        options_layout.addWidget(self.check_early_stopping, 0, 0)
-        
-        self.check_data_augmentation = QCheckBox("Data Augmentation")
-        self.check_data_augmentation.setChecked(False)
-        self.check_data_augmentation.setStyleSheet("color: #BDC3C7; font-size: 13px;")
-        options_layout.addWidget(self.check_data_augmentation, 0, 1)
-        
-        self.check_batch_norm = QCheckBox("Batch Normalization")
-        self.check_batch_norm.setChecked(True)
-        self.check_batch_norm.setStyleSheet("color: #BDC3C7; font-size: 13px;")
-        options_layout.addWidget(self.check_batch_norm, 1, 0)
-        
-        self.check_lr_scheduler = QCheckBox("Learning Rate Scheduler")
-        self.check_lr_scheduler.setChecked(False)
-        self.check_lr_scheduler.setStyleSheet("color: #BDC3C7; font-size: 13px;")
-        options_layout.addWidget(self.check_lr_scheduler, 1, 1)
-        
-        layout.addLayout(options_layout)
-        
-        parent_layout.addWidget(group)
-        
-        
-    def create_progress_section(self, parent_layout):
-        """Crea la sección de progreso"""
-        # El comentario original decía create_progress_section, pero la función se llamaba create_progress_section_dl
-        # Mantendré create_progress_section para consistencia con init_ui
-        group = QGroupBox("6. Progreso del Entrenamiento") # Numeración actualizada
-        group.setStyleSheet("""
-            QGroupBox {
-                font-size: 14px;
-                font-weight: bold;
-                color: #E0E0E0;
-                border: 2px solid #27AE60;
-                border-radius: 8px;
-                margin-top: 10px;
-                padding-top: 10px;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 5px 0 5px;
-            }
-        """)
-        
-        layout = QVBoxLayout(group)
-        layout.setSpacing(15)
-        
-        # Información de época actual
-        self.label_epoca = QLabel("Época: 0 / 0")
-        self.label_epoca.setStyleSheet("color: #27AE60; font-size: 14px; font-weight: bold;")
-        layout.addWidget(self.label_epoca)
-        
-        # Barra de progreso
-        self.progress_bar = QProgressBar()
-        self.progress_bar.setRange(0, 100)
-        self.progress_bar.setValue(0)
-        self.progress_bar.setStyleSheet("""
-            QProgressBar {
-                border: 2px solid #27AE60;
-                border-radius: 8px;
-                text-align: center;
+        layout.addWidget(self.dl_model_type_combo, 1, 1, 1, 3)
+
+        # Épocas
+        layout.addWidget(QLabel("Número de Épocas:"), 2, 0)
+        self.dl_epochs_input = QLineEdit("5")
+        self.dl_epochs_input.setMaximumWidth(100)
+        self.dl_epochs_input.setStyleSheet("""
+            QLineEdit {
+                background-color: #34495E;
                 color: white;
-                font-weight: bold;
-                background-color: #2C3E50;
-            }
-            QProgressBar::chunk {
-                background-color: #27AE60;
-                border-radius: 6px;
-            }
-        """)
-        layout.addWidget(self.progress_bar)
-        
-        # Métricas en tiempo real
-        metrics_layout = QHBoxLayout()
-        
-        self.label_loss = QLabel("Loss: --")
-        self.label_loss.setStyleSheet("color: #E74C3C; font-size: 12px; font-weight: bold;")
-        metrics_layout.addWidget(self.label_loss)
-        
-        self.label_accuracy = QLabel("Accuracy: --")
-        self.label_accuracy.setStyleSheet("color: #27AE60; font-size: 12px; font-weight: bold;")
-        metrics_layout.addWidget(self.label_accuracy)
-        
-        self.label_val_loss = QLabel("Val Loss: --")
-        self.label_val_loss.setStyleSheet("color: #F39C12; font-size: 12px; font-weight: bold;")
-        metrics_layout.addWidget(self.label_val_loss)
-        
-        self.label_val_accuracy = QLabel("Val Accuracy: --")
-        self.label_val_accuracy.setStyleSheet("color: #3498DB; font-size: 12px; font-weight: bold;")
-        metrics_layout.addWidget(self.label_val_accuracy)
-        
-        layout.addLayout(metrics_layout)
-        
-        # Log de entrenamiento
-        self.log_entrenamiento = QTextEdit()
-        self.log_entrenamiento.setMaximumHeight(120)
-        self.log_entrenamiento.setReadOnly(True)
-        self.log_entrenamiento.setPlaceholderText("Los logs del entrenamiento aparecerán aquí...")
-        self.log_entrenamiento.setStyleSheet("""
-            QTextEdit {
-                background-color: #2C3E50;
-                color: #BDC3C7;
-                border: 1px solid #27AE60;
+                border: 1px solid #9B59B6;
                 border-radius: 5px;
-                padding: 8px;
-                font-family: 'Courier New', monospace;
-                font-size: 11px;
+                padding: 5px;
             }
         """)
-        layout.addWidget(self.log_entrenamiento)
-        
-        parent_layout.addWidget(group)
-        
-    def create_action_buttons(self, parent_layout):
-        """Crea los botones de acción"""
-        buttons_layout = QHBoxLayout()
-        buttons_layout.setSpacing(20)
-        
-        # Botón iniciar entrenamiento
-        self.btn_iniciar = QPushButton("🚀 Iniciar Entrenamiento")
-        self.btn_iniciar.setFixedHeight(50)
-        self.btn_iniciar.setStyleSheet("""
+        layout.addWidget(self.dl_epochs_input, 2, 1)
+
+        # Batch size
+        layout.addWidget(QLabel("Tamaño de Batch:"), 2, 2)
+        self.dl_batch_size_input = QLineEdit("16")
+        self.dl_batch_size_input.setMaximumWidth(100)
+        self.dl_batch_size_input.setStyleSheet("""
+            QLineEdit {
+                background-color: #34495E;
+                color: white;
+                border: 1px solid #9B59B6;
+                border-radius: 5px;
+                padding: 5px;
+            }
+        """)
+        layout.addWidget(self.dl_batch_size_input, 2, 3)
+
+        # Botón de entrenamiento
+        self.btn_dl_train = QPushButton("🧠 Iniciar Entrenamiento Deep Learning")
+        self.btn_dl_train.setStyleSheet("""
             QPushButton {
                 background-color: #E74C3C;
                 color: white;
@@ -692,198 +446,261 @@ class VistaDLEntrenamiento(QWidget):
                 background-color: #7F8C8D;
             }
         """)
-        self.btn_iniciar.clicked.connect(self.iniciar_entrenamiento)
-        
-        # Botón detener
-        self.btn_detener = QPushButton("⏹ Detener")
-        self.btn_detener.setFixedHeight(50)
-        self.btn_detener.setEnabled(False)
-        self.btn_detener.setStyleSheet("""
-            QPushButton {
-                background-color: #95A5A6;
-                color: white;
-                border: none;
-                border-radius: 25px;
-                font-size: 16px;
+        self.btn_dl_train.clicked.connect(self.start_dl_training)
+        self.btn_dl_train.setEnabled(False)
+        layout.addWidget(self.btn_dl_train, 3, 1, 1, 3, Qt.AlignmentFlag.AlignRight)
+
+        # Aplicar estilos a las etiquetas
+        for i in range(layout.rowCount()):
+            item = layout.itemAtPosition(i, 0)
+            if item and item.widget() and isinstance(item.widget(), QLabel):
+                item.widget().setStyleSheet("color: #BDC3C7; font-size: 13px;")
+
+        parent_layout.addWidget(group)
+
+    def create_training_log(self, parent_layout):
+        """Crea la sección de registro y progreso del entrenamiento"""
+        group = QGroupBox("3. Registro y Progreso del Entrenamiento")
+        group.setStyleSheet("""
+            QGroupBox {
+                font-size: 14px;
                 font-weight: bold;
-                padding: 15px 30px;
+                color: #E0E0E0;
+                border: 2px solid #27AE60;
+                border-radius: 8px;
+                margin-top: 10px;
+                padding-top: 10px;
             }
-            QPushButton:hover {
-                background-color: #BDC3C7;
-            }
-            QPushButton:pressed {
-                background-color: #7F8C8D;
-            }
-            QPushButton:disabled {
-                background-color: #7F8C8D;
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px 0 5px;
             }
         """)
-        self.btn_detener.clicked.connect(self.detener_entrenamiento)
-        
-        buttons_layout.addStretch()
-        buttons_layout.addWidget(self.btn_iniciar)
-        buttons_layout.addWidget(self.btn_detener)
-        buttons_layout.addStretch()
-        
-        parent_layout.addLayout(buttons_layout)
-        
-    def iniciar_entrenamiento(self):
-        """Inicia el proceso de entrenamiento simulado"""
-        self.btn_iniciar.setEnabled(False)
-        self.btn_detener.setEnabled(True)
-        self.progreso_actual = 0
-        self.epoca_actual = 0
+        layout = QVBoxLayout(group)
+        layout.setSpacing(15)
+
+        # Información de época actual
+        self.label_epoca = QLabel("Época: 0 / 0")
+        self.label_epoca.setStyleSheet("color: #27AE60; font-size: 14px; font-weight: bold;")
+        layout.addWidget(self.label_epoca)
+
+        # Barra de progreso
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setRange(0, 100)
         self.progress_bar.setValue(0)
-        
-        # Limpiar log y métricas
+        self.progress_bar.setStyleSheet("""
+            QProgressBar {
+                border: 2px solid #27AE60;
+                border-radius: 8px;
+                text-align: center;
+                color: white;
+                font-weight: bold;
+                background-color: #2C3E50;
+            }
+            QProgressBar::chunk {
+                background-color: #27AE60;
+                border-radius: 6px;
+            }
+        """)
+        layout.addWidget(self.progress_bar)
+
+        # Métricas en tiempo real
+        metrics_layout = QHBoxLayout()
+
+        self.label_loss = QLabel("Loss: --")
+        self.label_loss.setStyleSheet("color: #E74C3C; font-size: 12px; font-weight: bold;")
+        metrics_layout.addWidget(self.label_loss)
+
+        self.label_accuracy = QLabel("Accuracy: --")
+        self.label_accuracy.setStyleSheet("color: #27AE60; font-size: 12px; font-weight: bold;")
+        metrics_layout.addWidget(self.label_accuracy)
+
+        self.label_val_loss = QLabel("Val Loss: --")
+        self.label_val_loss.setStyleSheet("color: #F39C12; font-size: 12px; font-weight: bold;")
+        metrics_layout.addWidget(self.label_val_loss)
+
+        self.label_val_accuracy = QLabel("Val Accuracy: --")
+        self.label_val_accuracy.setStyleSheet("color: #3498DB; font-size: 12px; font-weight: bold;")
+        metrics_layout.addWidget(self.label_val_accuracy)
+
+        layout.addLayout(metrics_layout)
+
+        # Log de entrenamiento
+        self.log_entrenamiento = QTextEdit()
+        self.log_entrenamiento.setMaximumHeight(120)
+        self.log_entrenamiento.setReadOnly(True)
+        self.log_entrenamiento.setPlaceholderText("Los logs del entrenamiento aparecerán aquí...")
+        self.log_entrenamiento.setStyleSheet("""
+            QTextEdit {
+                background-color: #2C3E50;
+                color: #BDC3C7;
+                border: 1px solid #27AE60;
+                border-radius: 5px;
+                padding: 8px;
+                font-family: 'Courier New', monospace;
+                font-size: 11px;
+            }
+        """)
+        layout.addWidget(self.log_entrenamiento)
+
+        parent_layout.addWidget(group)
+    def select_profession_folder(self):
+        """Selecciona una carpeta para la profesión"""
+        folder_path = QFileDialog.getExistingDirectory(self, "Seleccionar Carpeta de CVs")
+        if folder_path:
+            self.selected_folder = folder_path
+            self.btn_add_profession.setEnabled(bool(self.profession_name_input.text().strip()))
+            self.log_entrenamiento.append(f"📁 Carpeta seleccionada: {folder_path}")
+
+    def add_profession(self):
+        """Agrega una profesión con su carpeta asociada"""
+        profession = self.profession_name_input.text().strip()
+        if not profession or not hasattr(self, 'selected_folder'):
+            return
+
+        # Verificar si ya existe
+        if profession in self.profession_folders:
+            QMessageBox.information(self, "Profesión Existente", f"La profesión '{profession}' ya ha sido agregada.")
+            return
+
+        # Contar archivos PDF
+        pdf_count = self._count_pdf_files(self.selected_folder)
+
+        # Agregar a la lista
+        self.profession_folders[profession] = self.selected_folder
+        item_text = f"Profesión: {profession} | Carpeta: {self.selected_folder} (PDFs: {pdf_count})"
+        self.profession_list.addItem(item_text)
+
+        # Limpiar campos
+        self.profession_name_input.clear()
+        self.selected_folder = None
+        self.btn_add_profession.setEnabled(False)
+
+        # Habilitar entrenamiento si hay profesiones
+        self.btn_dl_train.setEnabled(len(self.profession_folders) > 0)
+
+        self.log_entrenamiento.append(f"➕ Profesión agregada: {profession}")
+
+    def clear_professions(self):
+        """Limpia la lista de profesiones"""
+        self.profession_folders.clear()
+        self.profession_list.clear()
+        self.btn_dl_train.setEnabled(False)
+        self.log_entrenamiento.append("🗑️ Lista de profesiones limpiada")
+
+    def _count_pdf_files(self, folder_path):
+        """Cuenta archivos PDF en una carpeta"""
+        if not os.path.isdir(folder_path):
+            return 0
+        count = 0
+        try:
+            for fname in os.listdir(folder_path):
+                if fname.lower().endswith('.pdf'):
+                    count += 1
+        except Exception as e:
+            print(f"Error contando archivos PDF en {folder_path}: {e}")
+            return 0
+        return count
+    def start_dl_training(self):
+        """Inicia el proceso de entrenamiento de Deep Learning"""
+        if not self.profession_folders:
+            QMessageBox.warning(self, "Sin Datos", "Por favor agregue al menos una profesión con su carpeta de datos.")
+            return
+
+        model_name = self.dl_model_name_input.text().strip()
+        if not model_name:
+            QMessageBox.warning(self, "Nombre Requerido", "Por favor ingrese un nombre para el modelo.")
+            return
+
+        # Validar parámetros
+        try:
+            epochs = int(self.dl_epochs_input.text())
+            batch_size = int(self.dl_batch_size_input.text())
+        except ValueError:
+            QMessageBox.warning(self, "Parámetros Inválidos", "Por favor ingrese valores numéricos válidos para épocas y batch size.")
+            return
+
+        # Obtener tipo de modelo
+        model_type = self.dl_model_type_combo.currentData()
+
+        # Mostrar progreso
+        self.progress_bar.setValue(0)
         self.log_entrenamiento.clear()
         self.log_entrenamiento.append("🔄 Iniciando entrenamiento Deep Learning...")
-        self.log_entrenamiento.append(f"🧠 Arquitectura: {self.combo_red.currentText()}")
-        self.log_entrenamiento.append(f"🔢 Capas ocultas: {self.spin_capas.value()}")
-        self.log_entrenamiento.append(f"⚡ Neuronas por capa: {self.spin_neuronas.value()}")
-        self.log_entrenamiento.append(f"📊 Learning Rate: {self.spin_lr.value()}")
-        self.log_entrenamiento.append(f"📦 Batch Size: {self.spin_batch.value()}")
-        self.log_entrenamiento.append(f"🔄 Épocas: {self.spin_epocas.value()}")
+        self.log_entrenamiento.append(f"🧠 Modelo: {model_name}")
+        self.log_entrenamiento.append(f"🏗️ Arquitectura: {self.dl_model_type_combo.currentText()}")
+        self.log_entrenamiento.append(f"📊 Épocas: {epochs}")
+        self.log_entrenamiento.append(f"📦 Batch Size: {batch_size}")
+        self.log_entrenamiento.append(f"📁 Profesiones: {len(self.profession_folders)}")
         self.log_entrenamiento.append("=" * 50)
-        
+
         # Actualizar label de época
-        self.label_epoca.setText(f"Época: 0 / {self.spin_epocas.value()}")
-        
-        # Emitir señal
+        self.label_epoca.setText(f"Época: 0 / {epochs}")
+
+        # Resetear métricas
+        self.label_loss.setText("Loss: --")
+        self.label_accuracy.setText("Accuracy: --")
+        self.label_val_loss.setText("Val Loss: --")
+        self.label_val_accuracy.setText("Val Accuracy: --")
+
+        # Deshabilitar botón
+        self.btn_dl_train.setEnabled(False)
+
+        # Crear y configurar worker thread
+        self.dl_training_worker = DLTrainingWorker(
+            self.profession_folders,
+            model_name,
+            model_type,
+            epochs,
+            batch_size
+        )
+
+        # Conectar señales
+        self.dl_training_worker.progress_updated.connect(self.update_dl_training_progress)
+        self.dl_training_worker.epoch_updated.connect(self.update_epoch_metrics)
+        self.dl_training_worker.training_completed.connect(self.on_dl_training_completed)
+        self.dl_training_worker.training_failed.connect(self.on_dl_training_failed)
+
+        # Iniciar entrenamiento
+        self.dl_training_worker.start()
         self.entrenamiento_iniciado.emit()
-        
-        # Iniciar timer para simular progreso
-        self.timer_entrenamiento = QTimer()
-        self.timer_entrenamiento.timeout.connect(self.actualizar_progreso)
-        self.timer_entrenamiento.start(300)  # Actualizar cada 300ms
-        
-    def actualizar_progreso(self):
+
+    def update_dl_training_progress(self, progress, message):
         """Actualiza el progreso del entrenamiento"""
-        import random
-        
-        # Calcular progreso basado en épocas
-        epocas_totales = self.spin_epocas.value()
-        progreso_por_epoca = 100 / epocas_totales
-        
-        # Incrementar progreso
-        incremento = random.uniform(0.5, 2.0)
-        self.progreso_actual += incremento
-        
-        # Calcular época actual
-        nueva_epoca = int(self.progreso_actual / progreso_por_epoca) + 1
-        
-        if nueva_epoca > self.epoca_actual and nueva_epoca <= epocas_totales:
-            self.epoca_actual = nueva_epoca
-            
-            # Simular métricas
-            loss = round(random.uniform(0.1, 2.0) * (1 - self.progreso_actual/100), 4)
-            accuracy = round(0.5 + (self.progreso_actual/100) * 0.45 + random.uniform(-0.05, 0.05), 4)
-            val_loss = round(loss + random.uniform(-0.1, 0.2), 4)
-            val_accuracy = round(accuracy + random.uniform(-0.1, 0.1), 4)
-            
-            # Actualizar métricas
-            self.label_loss.setText(f"Loss: {loss}")
-            self.label_accuracy.setText(f"Accuracy: {accuracy}")
-            self.label_val_loss.setText(f"Val Loss: {val_loss}")
-            self.label_val_accuracy.setText(f"Val Accuracy: {val_accuracy}")
-            
-            # Actualizar época
-            self.label_epoca.setText(f"Época: {self.epoca_actual} / {epocas_totales}")
-            
-            # Agregar log
-            self.log_entrenamiento.append(f"📊 Época {self.epoca_actual}: Loss={loss}, Acc={accuracy}, Val_Loss={val_loss}, Val_Acc={val_accuracy}")
-        
-        if self.progreso_actual >= 100:
-            self.progreso_actual = 100
-            self.finalizar_entrenamiento()
-        
-        self.progress_bar.setValue(int(self.progreso_actual))
-        
-    def finalizar_entrenamiento(self):
-        """Finaliza el entrenamiento"""
-        if self.timer_entrenamiento:
-            self.timer_entrenamiento.stop()
-            
-        self.btn_iniciar.setEnabled(True)
-        self.btn_detener.setEnabled(False)
-        
+        self.progress_bar.setValue(progress)
+        self.log_entrenamiento.append(f"⏳ {message}")
+
+    def update_epoch_metrics(self, current_epoch, total_epochs, metrics):
+        """Actualiza las métricas de época"""
+        self.label_epoca.setText(f"Época: {current_epoch} / {total_epochs}")
+
+        if metrics:
+            self.label_loss.setText(f"Loss: {metrics.get('loss', '--')}")
+            self.label_accuracy.setText(f"Accuracy: {metrics.get('accuracy', '--')}")
+            self.label_val_loss.setText(f"Val Loss: {metrics.get('val_loss', '--')}")
+            self.label_val_accuracy.setText(f"Val Accuracy: {metrics.get('val_accuracy', '--')}")
+
+    def on_dl_training_completed(self, results):
+        """Maneja la finalización exitosa del entrenamiento DL"""
         self.log_entrenamiento.append("=" * 50)
         self.log_entrenamiento.append("✅ ¡Entrenamiento Deep Learning completado!")
-        self.log_entrenamiento.append("🎯 Accuracy final: 0.943")
-        self.log_entrenamiento.append("📉 Loss final: 0.156")
-        self.log_entrenamiento.append("🔍 Val Accuracy: 0.938")
-        self.log_entrenamiento.append("📊 Val Loss: 0.162")
+        self.log_entrenamiento.append(f"🎯 Accuracy final: {results.get('accuracy', 0):.3f}")
+        self.log_entrenamiento.append(f"📊 Épocas entrenadas: {results.get('epochs_trained', 0)}")
+        self.log_entrenamiento.append(f"🏗️ Tipo de modelo: {results.get('model_type', 'N/A')}")
+        self.log_entrenamiento.append(f"👥 Clases: {results.get('num_classes', 0)}")
         self.log_entrenamiento.append("💾 Modelo guardado correctamente")
-        
-        # Emitir señal
+
+        self.btn_dl_train.setEnabled(True)
         self.entrenamiento_completado.emit()
-        
-    def detener_entrenamiento(self):
-        """Detiene el entrenamiento"""
-        if self.timer_entrenamiento:
-            self.timer_entrenamiento.stop()
-            
-        self.btn_iniciar.setEnabled(True)
-        self.btn_detener.setEnabled(False)
-        
-        self.log_entrenamiento.append("⏹ Entrenamiento detenido por el usuario")
 
-    # --- Métodos para manejo de fuentes de datos por profesión (DL) ---
-    def _handle_select_folder_dl(self):
-        folder_path = QFileDialog.getExistingDirectory(self, "Seleccionar Carpeta de Datos para la Profesión (DL)")
-        if folder_path:
-            self.line_edit_selected_folder_dl.setText(folder_path)
-            print(f"Carpeta seleccionada (DL): {folder_path}")
-        else:
-            print("Selección de carpeta cancelada (DL).")
+    def on_dl_training_failed(self, error_message):
+        """Maneja errores durante el entrenamiento DL"""
+        self.log_entrenamiento.append("=" * 50)
+        self.log_entrenamiento.append("❌ Error durante el entrenamiento Deep Learning:")
+        self.log_entrenamiento.append(f"   {error_message}")
 
-    def _handle_add_profession_data_dl(self):
-        profesion = self.line_edit_profession_dl.text().strip()
-        ruta_carpeta = self.line_edit_selected_folder_dl.text().strip()
+        self.btn_dl_train.setEnabled(True)
+        QMessageBox.critical(self, "Error de Entrenamiento DL", f"Error durante el entrenamiento:\n{error_message}")
 
-        if not profesion:
-            QMessageBox.warning(self, "Campo Vacío", "Por favor, ingrese una profesión.")
-            self.line_edit_profession_dl.setFocus()
-            return
-        
-        if not ruta_carpeta:
-            QMessageBox.warning(self, "Campo Vacío", "Por favor, seleccione una carpeta de datos.")
-            self.btn_select_folder_dl.setFocus()
-            return
 
-        # Contar archivos en la carpeta
-        num_archivos = 0
-        try:
-            if os.path.isdir(ruta_carpeta):
-                num_archivos = len([f for f in os.listdir(ruta_carpeta) if os.path.isfile(os.path.join(ruta_carpeta, f))])
-        except Exception as e:
-            print(f"Error al contar archivos en {ruta_carpeta}: {e}")
-            QMessageBox.warning(self, "Error Carpeta", f"No se pudo acceder o contar archivos en la carpeta:\n{ruta_carpeta}\n\nError: {e}")
-
-        item_text = f"Profesión: {profesion}  |  Carpeta: {ruta_carpeta} (Archivos: {num_archivos})"
-        
-        # Chequeo de duplicado lógico (sin contar archivos)
-        items_actuales_text = [self.list_widget_data_sources_dl.item(i).text() for i in range(self.list_widget_data_sources_dl.count())]
-        profesion_carpeta_text_base = f"Profesión: {profesion}  |  Carpeta: {ruta_carpeta}"
-        for item_existente in items_actuales_text:
-            if item_existente.startswith(profesion_carpeta_text_base):
-                QMessageBox.information(self, "Duplicado", "Esta combinación de profesión y carpeta (independientemente del número de archivos) ya ha sido agregada.")
-                return
-
-        self.list_widget_data_sources_dl.addItem(item_text)
-        print(f"Datos asociados (DL): {item_text}")
-
-        self.line_edit_profession_dl.clear()
-        self.line_edit_selected_folder_dl.clear()
-        self.line_edit_profession_dl.setFocus()
-
-    def _handle_remove_source_dl(self):
-        selected_items = self.list_widget_data_sources_dl.selectedItems()
-        if not selected_items:
-            print("Ningún elemento seleccionado para quitar (DL).")
-            return
-        
-        for item in selected_items:
-            item_text = item.text()
-            self.list_widget_data_sources_dl.takeItem(self.list_widget_data_sources_dl.row(item))
-            print(f"Elemento quitado (DL): {item_text}")
