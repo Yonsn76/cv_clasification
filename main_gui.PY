@@ -565,12 +565,39 @@ class MainWindow(QMainWindow):
             }}
 
 
-            #InicioPage, #EntrenamientoPage, #ModelosPage, #ClasificarCVPage, #ImportarExportarPage, 
-            #seleccion, #VistaHerramientas, #VistaCentroAccion {{ 
+            #InicioPage, #EntrenamientoPage, #ModelosPage, #ClasificarCVPage, #ImportarExportarPage,
+            #seleccion, #VistaHerramientas, #VistaCentroAccion,
+            VistaMLEntrenamiento, VistaDLEntrenamiento, #VistaSeleccionContenido {{ /* Añadido VistaSeleccionContenido */
                 background-color: {self.color_central_bg}; 
             }}
-            #TituloSeccion {{ color: {self.color_text_light}; font-size: 18pt; font-weight: bold; padding: 20px; }}
-            #DescripcionSeccion {{ color: {self.color_text_medium}; font-size: 12pt; padding: 10px; }}
+            QScrollArea {{ /* Hacer QScrollArea transparente */
+                background-color: transparent;
+                border: none; /* Opcional: quitar borde si lo tuviera por defecto */
+            }}
+            QScrollArea > QWidget > QWidget {{ /* Para el viewport del QScrollArea */
+                 background-color: transparent;
+            }}
+            #TituloSeccion, #TituloEntrenamiento {{ /* Añadido #TituloEntrenamiento */
+                color: {self.color_text_light}; 
+                font-size: 18pt; /* Ajustado para consistencia, era 22pt en entrenar_vista */
+                font-weight: bold; 
+                padding: 20px; 
+                margin-bottom: 15px; /* Margen inferior para #TituloEntrenamiento */
+            }}
+            #DescripcionSeccion, #SubtituloEntrenamiento {{ /* Añadido #SubtituloEntrenamiento */
+                color: {self.color_text_medium}; 
+                font-size: 12pt; /* Ajustado para consistencia, era 14pt en entrenar_vista */
+                padding: 10px; 
+                margin-bottom: 25px; /* Margen inferior para #SubtituloEntrenamiento */
+            }}
+            #InstruccionEntrenamiento {{
+                color: {self.color_text_medium}; /* Era #95A5A6 */
+                font-size: 11pt; /* Era 12px */
+                margin: 20px 35px; /* Margen ajustado */
+                padding: 15px;
+                background-color: {QColor(self.color_central_bg).lighter(105).name()}; /* Era rgba(52, 73, 94, 0.3) */
+                border-radius: 8px;
+            }}
             QLabel {{ color: {self.color_text_light}; }}
             QTextEdit {{ background-color: {QColor(self.color_central_bg).lighter(110).name()}; color: {self.color_text_light}; border: 1px solid {QColor(self.color_window_border).lighter(150).name()}; border-radius: 4px; padding: 5px; }}
             QProgressBar {{ border: 1px solid {QColor(self.color_window_border).lighter(150).name()}; border-radius: 4px; text-align: center; color: {self.color_text_light}; background-color: {QColor(self.color_central_bg).lighter(110).name()}; }}
@@ -590,6 +617,73 @@ class MainWindow(QMainWindow):
             QPushButton#ToolActionButton {{ background-color: {self.color_accent_blue_link}; color: white; border-radius: 4px; font-size: 11pt; font-weight: bold; padding: 8px 12px; }}
             QPushButton#ToolActionButton:hover {{ background-color: {QColor(self.color_accent_blue_link).lighter(120).name()}; }}
             QPushButton#ToolActionButton:pressed {{ background-color: {QColor(self.color_accent_blue_link).darker(120).name()}; }}
+
+            /* Estilos para TrainingOptionCard y sus componentes */
+            QFrame#TrainingOptionCard {{
+                background-color: {QColor(self.color_central_bg).lighter(120).name()}; /* Ajustado para ser un poco más claro */
+                border-radius: 15px;
+                border: 2px solid {QColor(self.color_central_bg).lighter(135).name()}; /* Borde ajustado para mejor contraste */
+                padding: 20px;
+            }}
+            QFrame#TrainingOptionCard:hover {{
+                border: 2px solid {self.color_accent_blue_link}; 
+                background-color: {QColor(self.color_central_bg).lighter(130).name()}; /* Ajustado para ser más claro que el fondo normal y el borde normal */
+            }}
+            QLabel#CardModelIndicator {{ /* Estilo para el indicador de imagen/texto si no carga imagen */
+                background-color: {QColor(self.color_central_bg).lighter(115).name()};
+                color: {self.color_text_light};
+                border-radius: 10px;
+                font-size: 16px;
+                font-weight: bold;
+                padding: 5px;
+                min-width: 60px; /* Para asegurar que el texto no se corte */
+                min-height: 40px;
+            }}
+            QPushButton#CardMainButton {{
+                color: white;
+                border: none;
+                border-radius: 20px;
+                font-size: 13pt; /* Era 15px */
+                font-weight: bold;
+                padding: 10px 20px;
+            }}
+            QPushButton#CardMainButton[optionType="ml"] {{
+                background-color: {self.color_accent_blue_link}; /* Era #3498DB */
+            }}
+            QPushButton#CardMainButton[optionType="dl"] {{
+                background-color: {self.color_accent_red}; /* Era #E74C3C */
+            }}
+            QPushButton#CardMainButton[optionType="ml"]:hover {{
+                background-color: {QColor(self.color_accent_blue_link).lighter(120).name()};
+            }}
+            QPushButton#CardMainButton[optionType="dl"]:hover {{
+                background-color: {QColor(self.color_accent_red).lighter(120).name()};
+            }}
+            QPushButton#CardMainButton[optionType="ml"]:pressed {{
+                background-color: {QColor(self.color_accent_blue_link).darker(120).name()};
+            }}
+            QPushButton#CardMainButton[optionType="dl"]:pressed {{
+                background-color: {QColor(self.color_accent_red).darker(120).name()};
+            }}
+            QPushButton#CardConfigButton {{
+                background-color: transparent;
+                color: {self.color_text_medium}; /* Era #7F8C8D */
+                border: 1px solid {self.color_text_medium}; /* Era #7F8C8D */
+                border-radius: 18px;
+                font-size: 11pt; /* Era 13px */
+                padding: 8px 18px;
+            }}
+            QPushButton#CardConfigButton:hover {{
+                color: {self.color_text_light}; /* Era #BDC3C7 */
+                border: 1px solid {self.color_text_light}; /* Era #BDC3C7 */
+            }}
+            QLabel#CardDescriptionLabel {{
+                color: {QColor(self.color_text_medium).lighter(110).name()}; /* Era #95A5A6 */
+                font-size: 10pt; /* Era 12px */
+                margin: 10px 0px;
+                padding: 8px;
+            }}
+            /* Fin de estilos para TrainingOptionCard */
 
             QFrame[objectName^="NotifFrame_"] {{ border-radius: 5px; padding: 12px; }}
             QFrame#NotifFrame_critical {{ background-color: {color_notif_critical_bg}; border: 1px solid {color_notif_critical_border}; }}

@@ -47,16 +47,17 @@ class ModelImageIndicator(QLabel):
 
         if not self._original_pixmap:
              self.setText(f"{self.indicator_type.upper()}")
-             self.setStyleSheet("""
-                QLabel {
-                    background-color: #34495E;
-                    color: white;
-                    border-radius: 10px;
-                    font-size: 16px;
-                    font-weight: bold;
-                    padding: 5px;
-                }
-            """)
+             # self.setStyleSheet(""" Eliminar QSS en línea
+             #    QLabel {
+             #        background-color: #34495E;
+             #        color: white;
+             #        border-radius: 10px;
+             #        font-size: 16px;
+             #        font-weight: bold;
+             #        padding: 5px;
+             #    }
+             # """)
+             self.setObjectName("CardModelIndicator") # Añadir objectName
         
         self.updateGeometry()
 
@@ -103,28 +104,29 @@ class TrainingOptionCard(QFrame):
         super().__init__(parent)
         self.option_type = option_type
         self.setObjectName("TrainingOptionCard")
-        # Cambiado: La tarjeta ahora prefiere su sizeHint, no se expande horizontalmente por defecto.
-        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
-        # Podríamos establecer un ancho mínimo para que la tarjeta no sea demasiado estrecha
-        self.setMinimumWidth(280) # Ajusta este valor según necesites
+        # Cambiado: La tarjeta ahora prefiere su sizeHint horizontalmente,
+        # y se expande verticalmente si hay espacio.
+        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.MinimumExpanding)
+        self.setMinimumWidth(280) # Ancho mínimo
+        self.setMinimumHeight(330) # Reducida la altura mínima de la tarjeta
 
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setStyleSheet("""
-            QFrame#TrainingOptionCard {
-                background-color: #34495E;
-                border-radius: 15px;
-                border: 2px solid #2C3E50;
-                padding: 20px; /* Aumentado un poco el padding para mejor estética */
-            }
-            QFrame#TrainingOptionCard:hover {
-                border: 2px solid #3498DB;
-                background-color: #3C5A78;
-            }
-        """)
+        # self.setStyleSheet(""" Eliminar QSS en línea
+        #     QFrame#TrainingOptionCard {
+        #         background-color: #34495E;
+        #         border-radius: 15px;
+        #         border: 2px solid #2C3E50;
+        #         padding: 20px; /* Aumentado un poco el padding para mejor estética */
+        #     }
+        #     QFrame#TrainingOptionCard:hover {
+        #         border: 2px solid #3498DB;
+        #         background-color: #3C5A78;
+        #     }
+        # """)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(10, 15, 10, 10)
-        layout.setSpacing(15) # Aumentado un poco el espaciado
+        layout.setSpacing(10) # Reducido el espaciado
 
         self.indicator = ModelImageIndicator(option_type)
         layout.addWidget(self.indicator, 1, Qt.AlignmentFlag.AlignCenter)
@@ -137,43 +139,46 @@ class TrainingOptionCard(QFrame):
             button_color = "#E74C3C"
 
         self.main_button = QPushButton(button_text)
+        self.main_button.setObjectName("CardMainButton") # Añadir objectName
+        self.main_button.setProperty("optionType", self.option_type) # Añadir propiedad dinámica
         self.main_button.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
-        self.main_button.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {button_color};
-                color: white;
-                border: none;
-                border-radius: 20px; /* Un poco más redondeado */
-                font-size: 15px; /* Un poco más grande */
-                font-weight: bold;
-                padding: 10px 20px; /* Padding ajustado */
-            }}
-            QPushButton:hover {{
-                background-color: {QColor(button_color).lighter(120).name()};
-            }}
-            QPushButton:pressed {{
-                background-color: {QColor(button_color).darker(120).name()};
-            }}
-        """)
+        # self.main_button.setStyleSheet(f""" Eliminar QSS en línea
+        #     QPushButton {{
+        #         background-color: {button_color};
+        #         color: white;
+        #         border: none;
+        #         border-radius: 20px; /* Un poco más redondeado */
+        #         font-size: 15px; /* Un poco más grande */
+        #         font-weight: bold;
+        #         padding: 10px 20px; /* Padding ajustado */
+        #     }}
+        #     QPushButton:hover {{
+        #         background-color: {QColor(button_color).lighter(120).name()};
+        #     }}
+        #     QPushButton:pressed {{
+        #         background-color: {QColor(button_color).darker(120).name()};
+        #     }}
+        # """)
         self.main_button.clicked.connect(lambda: self.option_clicked.emit(self.option_type))
         layout.addWidget(self.main_button, 0, Qt.AlignmentFlag.AlignCenter)
 
         self.config_button = QPushButton("Más Opciones") # Texto de ejemplo
+        self.config_button.setObjectName("CardConfigButton") # Añadir objectName
         self.config_button.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
-        self.config_button.setStyleSheet("""
-            QPushButton {
-                background-color: transparent;
-                color: #7F8C8D;
-                border: 1px solid #7F8C8D;
-                border-radius: 18px; /* Un poco más redondeado */
-                font-size: 13px; /* Un poco más grande */
-                padding: 8px 18px; /* Padding ajustado */
-            }
-            QPushButton:hover {
-                color: #BDC3C7;
-                border: 1px solid #BDC3C7;
-            }
-        """)
+        # self.config_button.setStyleSheet(""" Eliminar QSS en línea
+        #     QPushButton {
+        #         background-color: transparent;
+        #         color: #7F8C8D;
+        #         border: 1px solid #7F8C8D;
+        #         border-radius: 18px; /* Un poco más redondeado */
+        #         font-size: 13px; /* Un poco más grande */
+        #         padding: 8px 18px; /* Padding ajustado */
+        #     }
+        #     QPushButton:hover {
+        #         color: #BDC3C7;
+        #         border: 1px solid #BDC3C7;
+        #     }
+        # """)
         layout.addWidget(self.config_button, 0, Qt.AlignmentFlag.AlignCenter)
 
         if option_type == "ml":
@@ -182,29 +187,53 @@ class TrainingOptionCard(QFrame):
             desc_text = "Redes neuronales profundas para análisis avanzado y generación de perfiles."
 
         self.description_label = QLabel(desc_text)
+        self.description_label.setObjectName("CardDescriptionLabel") # Añadir objectName
         self.description_label.setWordWrap(True)
         self.description_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.description_label.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.MinimumExpanding)
-        self.description_label.setStyleSheet("""
-            color: #95A5A6;
-            font-size: 12px; /* Un poco más grande */
-            margin: 10px 0px; /* Margen vertical */
-            padding: 8px;
-        """)
+        # self.description_label.setStyleSheet(""" Eliminar QSS en línea
+        #     color: #95A5A6;
+        #     font-size: 12px; /* Un poco más grande */
+        #     margin: 10px 0px; /* Margen vertical */
+        #     padding: 8px;
+        # """)
         layout.addWidget(self.description_label, 0, Qt.AlignmentFlag.AlignCenter)
 
 class seleccion(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setObjectName("VistaMejorar")
+        # self.setObjectName("VistaMejorar") # Eliminar objectName innecesario
         
         # Crear el QStackedWidget
         self.stack = QStackedWidget()
-        
-        # Crear la vista principal de selección
+
+        # Crear la vista principal de selección y sus layouts alternativos para las tarjetas
         self.vista_seleccion = QWidget()
-        self.setup_vista_seleccion()
+        self.vista_seleccion.setObjectName("VistaSeleccionContenido")
         
+        self.cards_container = QWidget() # Contenedor para las tarjetas
+        self.ml_card = TrainingOptionCard("ml")
+        self.dl_card = TrainingOptionCard("dl")
+
+        self.cards_layout_h = QHBoxLayout()
+        self.cards_layout_h.setContentsMargins(10, 0, 10, 0)
+        self.cards_layout_h.setSpacing(20) # Reducido el espaciado
+        self.cards_layout_h.addStretch(1)
+        self.cards_layout_h.addWidget(self.ml_card)
+        self.cards_layout_h.addWidget(self.dl_card)
+        self.cards_layout_h.addStretch(1)
+
+        self.cards_layout_v = QVBoxLayout()
+        self.cards_layout_v.setContentsMargins(10, 0, 10, 0)
+        self.cards_layout_v.setSpacing(25) # Espaciado vertical entre tarjetas
+        self.cards_layout_v.setAlignment(Qt.AlignmentFlag.AlignCenter) # Centrar tarjetas horizontalmente
+        # Los widgets se añadirán dinámicamente
+
+        self.current_cards_layout_is_horizontal = True
+        self.cards_container.setLayout(self.cards_layout_h) # Layout inicial
+
+        self.setup_vista_seleccion(self.vista_seleccion) # Pasar vista_seleccion para configurar su contenido
+
         # Inicializar las vistas de entrenamiento
         self.vista_ml = VistaMLEntrenamiento()
         self.vista_dl = VistaDLEntrenamiento()
@@ -213,14 +242,13 @@ class seleccion(QWidget):
         self.vista_ml.volver_solicitado.connect(lambda: self.stack.setCurrentIndex(0))
         self.vista_dl.volver_solicitado.connect(lambda: self.stack.setCurrentIndex(0))
         
-        # Crear scroll areas para cada vista
-        scroll_seleccion = QScrollArea()
-        scroll_seleccion.setWidget(self.vista_seleccion)
-        scroll_seleccion.setWidgetResizable(True)
-        scroll_seleccion.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        scroll_seleccion.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        scroll_seleccion.setFrameShape(QFrame.Shape.NoFrame)
+        # La vista_seleccion se añade directamente, sin QScrollArea
+        # self.scroll_area_seleccion = QScrollArea()
+        # self.scroll_area_seleccion.setWidget(self.vista_seleccion)
+        # self.scroll_area_seleccion.setWidgetResizable(True)
+        # self.scroll_area_seleccion.setFrameShape(QFrame.Shape.NoFrame)
 
+        # Envolver las vistas de entrenamiento ML y DL en QScrollArea
         scroll_ml = QScrollArea()
         scroll_ml.setWidget(self.vista_ml)
         scroll_ml.setWidgetResizable(True)
@@ -231,10 +259,10 @@ class seleccion(QWidget):
         scroll_dl.setWidgetResizable(True)
         scroll_dl.setFrameShape(QFrame.Shape.NoFrame)
         
-        # Agregar scroll areas al stack
-        self.stack.addWidget(scroll_seleccion)  # índice 0
-        self.stack.addWidget(scroll_ml)         # índice 1
-        self.stack.addWidget(scroll_dl)         # índice 2
+        # Agregar widgets/vistas al stack
+        self.stack.addWidget(self.vista_seleccion)        # índice 0
+        self.stack.addWidget(scroll_ml)                   # índice 1
+        self.stack.addWidget(scroll_dl)                   # índice 2
         
         # Layout principal
         main_layout = QVBoxLayout(self)
@@ -242,50 +270,39 @@ class seleccion(QWidget):
         main_layout.addWidget(self.stack)
         
         # Establecer un tamaño mínimo y preferido para la ventana
-        self.setMinimumSize(800, 600)
-        self.resize(1000, 800)
+        self.setMinimumSize(800, 600) # Ajustar según sea necesario
+        # self.resize(1000, 800) # El tamaño inicial puede ser manejado por la ventana principal
 
-    def setup_vista_seleccion(self):
+    def setup_vista_seleccion(self, vista_para_setup):
         """Configura la vista de selección"""
-        layout = QVBoxLayout(self.vista_seleccion)
-        layout.setContentsMargins(25, 20, 25, 20)
-        layout.setSpacing(25)
+        layout = QVBoxLayout(vista_para_setup) # Usar el widget pasado
+        layout.setContentsMargins(15, 5, 15, 15) # Reducido margen superior
+        layout.setSpacing(5) # Reducido espaciado general
 
         title_label = QLabel("🧠 Entrenamiento de Modelos de IA 🧠")
         title_font = QFont()
         title_font.setPointSize(22)
         title_font.setBold(True)
         title_label.setFont(title_font)
+        title_label.setObjectName("TituloEntrenamiento")
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title_label.setStyleSheet("color: #E0E0E0; margin-bottom: 20px;")
         layout.addWidget(title_label)
 
         subtitle_label = QLabel("Selecciona el tipo de modelo que deseas entrenar o configurar")
         subtitle_font = QFont()
         subtitle_font.setPointSize(14)
         subtitle_label.setFont(subtitle_font)
+        subtitle_label.setObjectName("SubtituloEntrenamiento")
         subtitle_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        subtitle_label.setStyleSheet("color: #BDC3C7; margin-bottom: 30px;")
         layout.addWidget(subtitle_label)
+        layout.addSpacing(10) # Espacio adicional después del subtítulo
 
-        cards_container = QWidget()
-        cards_layout = QHBoxLayout(cards_container)
-        cards_layout.setContentsMargins(10, 0, 10, 0)
-        cards_layout.setSpacing(40)
-        
-        cards_layout.addStretch(1)
-
-        self.ml_card = TrainingOptionCard("ml")
+        # Conectar señales de las tarjetas (ya creadas en __init__)
         self.ml_card.option_clicked.connect(self.handle_training_option)
-        cards_layout.addWidget(self.ml_card)
-
-        self.dl_card = TrainingOptionCard("dl")
         self.dl_card.option_clicked.connect(self.handle_training_option)
-        cards_layout.addWidget(self.dl_card)
-        
-        cards_layout.addStretch(1)
 
-        layout.addWidget(cards_container)
+        # Añadir el cards_container (que ya tiene el layout horizontal por defecto)
+        layout.addWidget(self.cards_container)
         layout.addStretch(1)
 
         description_label = QLabel(
@@ -294,15 +311,16 @@ class seleccion(QWidget):
             "Selecciona una opción para continuar."
         )
         description_label.setWordWrap(True)
+        description_label.setObjectName("InstruccionEntrenamiento") # Añadir objectName
         description_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        description_label.setStyleSheet("""
-            color: #95A5A6;
-            font-size: 12px;
-            margin: 20px 40px;
-            padding: 15px;
-            background-color: rgba(52, 73, 94, 0.3);
-            border-radius: 8px;
-        """)
+        # description_label.setStyleSheet(""" Eliminar QSS en línea
+        #     color: #95A5A6;
+        #     font-size: 12px;
+        #     margin: 20px 40px;
+        #     padding: 15px;
+        #     background-color: rgba(52, 73, 94, 0.3);
+        #     border-radius: 8px;
+        # """)
         layout.addWidget(description_label)
 
     def handle_training_option(self, option_type):
@@ -329,7 +347,7 @@ class VistaHerramientas(QWidget):
         label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         font = label.font(); font.setPointSize(16); label.setFont(font)
         layout.addWidget(label)
-        self.setStyleSheet("background-color: #2a3b4c; color: #D0D0D0;")
+        # self.setStyleSheet("background-color: #2a3b4c; color: #D0D0D0;") # Eliminar QSS en línea
 
 class VistaCentroAccion(QWidget):
     def __init__(self, parent=None):
@@ -339,4 +357,4 @@ class VistaCentroAccion(QWidget):
         label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         font = label.font(); font.setPointSize(16); label.setFont(font)
         layout.addWidget(label)
-        self.setStyleSheet("background-color: #3c2a4c; color: #D0D0D0;")
+        # self.setStyleSheet("background-color: #3c2a4c; color: #D0D0D0;") # Eliminar QSS en línea
