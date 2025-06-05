@@ -2,7 +2,7 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
                              QPushButton, QFrame, QProgressBar, QTextEdit,
                              QComboBox, QSpinBox, QCheckBox, QGroupBox,
-                             QGridLayout, QSlider, QDoubleSpinBox)
+                             QGridLayout, QSlider, QDoubleSpinBox, QLineEdit, QListWidget, QFileDialog, QMessageBox) # Añadido QMessageBox
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QFont, QPixmap
 import os
@@ -73,6 +73,12 @@ class VistaDLEntrenamiento(QWidget):
         main_content = QWidget()
         content_layout = QVBoxLayout(main_content)
         content_layout.setSpacing(25)
+
+        # Sección de Configuración de Datos y Profesión
+        self.create_data_profession_config_section(content_layout)
+
+        # Sección para Nombre del Modelo
+        self.create_model_name_section(content_layout)
         
         # Sección de arquitectura de red
         self.create_architecture_section(content_layout)
@@ -91,9 +97,52 @@ class VistaDLEntrenamiento(QWidget):
         
         layout.addWidget(main_content)
         
+        
+    def create_model_name_section(self, parent_layout):
+        """Crea la sección para ingresar el nombre del modelo"""
+        group = QGroupBox("2. Nombre del Modelo a Entrenar")
+        group.setStyleSheet("""
+            QGroupBox {
+                font-size: 14px;
+                font-weight: bold;
+                color: #E0E0E0;
+                border: 2px solid #8E44AD; /* Mismo color que en ML para consistencia */
+                border-radius: 8px;
+                margin-top: 10px;
+                padding-top: 10px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px 0 5px;
+            }
+        """)
+        
+        layout = QHBoxLayout(group)
+        layout.setSpacing(10)
+
+        label_model_name = QLabel("Nombre del Modelo:")
+        label_model_name.setStyleSheet("color: #BDC3C7; font-size: 13px;")
+        layout.addWidget(label_model_name)
+
+        self.line_edit_model_name_dl = QLineEdit()
+        self.line_edit_model_name_dl.setPlaceholderText("Ej: ModeloImagenesCNN, ModeloTextosLSTM")
+        self.line_edit_model_name_dl.setStyleSheet("""
+            QLineEdit {
+                background-color: #34495E;
+                color: white;
+                border: 1px solid #8E44AD;
+                border-radius: 5px;
+                padding: 8px;
+                font-size: 13px;
+            }
+        """)
+        layout.addWidget(self.line_edit_model_name_dl)
+        parent_layout.addWidget(group)
+
     def create_architecture_section(self, parent_layout):
         """Crea la sección de arquitectura de red neuronal"""
-        group = QGroupBox("Arquitectura de Red Neuronal")
+        group = QGroupBox("3. Arquitectura de Red Neuronal") # Numeración actualizada
         group.setStyleSheet("""
             QGroupBox {
                 font-size: 14px;
@@ -134,6 +183,27 @@ class VistaDLEntrenamiento(QWidget):
                 padding: 8px;
                 font-size: 13px;
             }
+            QComboBox QListView { 
+                background-color: #2C3E50; 
+                color: #ECF0F1; 
+                border: 1px solid #3498DB;
+                padding: 4px; 
+                outline: 0px; 
+            }
+            QComboBox QListView::item { 
+                background-color: transparent; 
+                color: #ECF0F1; 
+                min-height: 25px; 
+                padding: 0px 5px; 
+            }
+            QComboBox QListView::item:selected {
+                background-color: #4A6B8A; 
+                color: #ECF0F1; 
+            }
+            QComboBox QListView::item:hover {
+                background-color: #557CAC; 
+                color: #ECF0F1; 
+            }
         """)
         layout.addWidget(self.combo_red, 0, 1)
         
@@ -166,7 +236,38 @@ class VistaDLEntrenamiento(QWidget):
         layout.addWidget(QLabel("Activación:"), 3, 0)
         self.combo_activacion = QComboBox()
         self.combo_activacion.addItems(["ReLU", "Sigmoid", "Tanh", "Leaky ReLU", "ELU", "Swish"])
-        self.combo_activacion.setStyleSheet(self.combo_red.styleSheet())
+        qss_combo_activacion_dl = """
+            QComboBox {
+                background-color: #34495E;
+                color: white;
+                border: 1px solid #E74C3C;
+                border-radius: 5px;
+                padding: 8px;
+                font-size: 13px;
+            }
+            QComboBox QListView { 
+                background-color: #2C3E50; 
+                color: #ECF0F1; 
+                border: 1px solid #3498DB; 
+                padding: 4px; 
+                outline: 0px; 
+            }
+            QComboBox QListView::item { 
+                background-color: transparent; 
+                color: #ECF0F1; 
+                min-height: 25px; 
+                padding: 0px 5px; 
+            }
+            QComboBox QListView::item:selected {
+                background-color: #4A6B8A; 
+                color: #ECF0F1; 
+            }
+            QComboBox QListView::item:hover {
+                background-color: #557CAC; 
+                color: #ECF0F1; 
+            }
+        """
+        self.combo_activacion.setStyleSheet(qss_combo_activacion_dl)
         layout.addWidget(self.combo_activacion, 3, 1)
         
         # Aplicar estilos a las etiquetas
@@ -175,11 +276,131 @@ class VistaDLEntrenamiento(QWidget):
             if item and item.widget() and isinstance(item.widget(), QLabel):
                 item.widget().setStyleSheet("color: #BDC3C7; font-size: 13px;")
         
+        
         parent_layout.addWidget(group)
+
+    def create_data_profession_config_section(self, parent_layout):
+        """Crea la sección de configuración de datos y profesión"""
+        group = QGroupBox("1. Configuración de Datos y Profesión")
+        group.setStyleSheet("""
+            QGroupBox {
+                font-size: 14px;
+                font-weight: bold;
+                color: #E0E0E0;
+                border: 2px solid #1ABC9C; /* Mismo color que en ML para consistencia */
+                border-radius: 8px;
+                margin-top: 10px;
+                padding-top: 10px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px 0 5px;
+            }
+        """)
+        
+        layout = QGridLayout(group)
+        layout.setSpacing(15)
+        layout.setColumnStretch(1, 1)
+        layout.setColumnStretch(2, 1)
+
+        # Profesión Objetivo
+        label_profession = QLabel("Profesión Objetivo:")
+        label_profession.setStyleSheet("color: #BDC3C7; font-size: 13px;")
+        layout.addWidget(label_profession, 0, 0)
+        
+        self.line_edit_profession_dl = QLineEdit()
+        self.line_edit_profession_dl.setPlaceholderText("Ej: Científico de Datos")
+        self.line_edit_profession_dl.setStyleSheet("""
+            QLineEdit {
+                background-color: #34495E;
+                color: white;
+                border: 1px solid #1ABC9C;
+                border-radius: 5px;
+                padding: 8px;
+                font-size: 13px;
+            }
+        """)
+        layout.addWidget(self.line_edit_profession_dl, 0, 1, 1, 2)
+
+        # Carpeta de Datos
+        label_data_folder = QLabel("Carpeta de Datos:")
+        label_data_folder.setStyleSheet("color: #BDC3C7; font-size: 13px;")
+        layout.addWidget(label_data_folder, 1, 0)
+
+        self.line_edit_selected_folder_dl = QLineEdit()
+        self.line_edit_selected_folder_dl.setPlaceholderText("Seleccione una carpeta...")
+        self.line_edit_selected_folder_dl.setReadOnly(True)
+        self.line_edit_selected_folder_dl.setStyleSheet("""
+            QLineEdit {
+                background-color: #2C3E50; 
+                color: #BDC3C7;
+                border: 1px solid #1ABC9C;
+                border-radius: 5px;
+                padding: 8px;
+                font-size: 13px;
+            }
+        """)
+        layout.addWidget(self.line_edit_selected_folder_dl, 1, 1)
+
+        self.btn_select_folder_dl = QPushButton("Seleccionar Carpeta...")
+        self.btn_select_folder_dl.setStyleSheet("""
+            QPushButton { background-color: #3498DB; color: white; border: none; border-radius: 5px; padding: 8px 12px; font-size: 12px; font-weight: bold; }
+            QPushButton:hover { background-color: #2980B9; }
+        """)
+        self.btn_select_folder_dl.clicked.connect(self._handle_select_folder_dl)
+        layout.addWidget(self.btn_select_folder_dl, 1, 2)
+        
+        # Botón para agregar la asociación
+        self.btn_add_profession_data_dl = QPushButton("Asociar Profesión y Carpeta")
+        self.btn_add_profession_data_dl.setStyleSheet("""
+            QPushButton { background-color: #2ECC71; color: white; border: none; border-radius: 5px; padding: 10px 15px; font-size: 13px; font-weight: bold; }
+            QPushButton:hover { background-color: #27AE60; }
+        """)
+        self.btn_add_profession_data_dl.clicked.connect(self._handle_add_profession_data_dl)
+        layout.addWidget(self.btn_add_profession_data_dl, 2, 1, 1, 2, alignment=Qt.AlignmentFlag.AlignCenter)
+
+        # Lista de Datos Asociados
+        label_data_sources = QLabel("Datos Asociados (Profesión - Carpeta):")
+        label_data_sources.setStyleSheet("color: #BDC3C7; font-size: 13px; margin-top: 10px;")
+        layout.addWidget(label_data_sources, 3, 0, 1, 3)
+
+        self.list_widget_data_sources_dl = QListWidget()
+        self.list_widget_data_sources_dl.setStyleSheet("""
+            QListWidget {
+                background-color: #2C3E50;
+                color: #ECF0F1;
+                border: 1px solid #1ABC9C;
+                border-radius: 5px;
+                padding: 5px;
+                font-size: 12px;
+                min-height: 100px;
+            }
+            QListWidget::item {
+                padding: 4px;
+            }
+            QListWidget::item:selected {
+                background-color: #1ABC9C;
+                color: #2C3E50;
+            }
+        """)
+        layout.addWidget(self.list_widget_data_sources_dl, 4, 0, 1, 3)
+
+        # Botón para quitar seleccionado
+        self.btn_remove_source_dl = QPushButton("Quitar Seleccionado")
+        self.btn_remove_source_dl.setStyleSheet("""
+            QPushButton { background-color: #E74C3C; color: white; border: none; border-radius: 5px; padding: 8px 12px; font-size: 12px; font-weight: bold; }
+            QPushButton:hover { background-color: #C0392B; }
+        """)
+        self.btn_remove_source_dl.clicked.connect(self._handle_remove_source_dl)
+        layout.addWidget(self.btn_remove_source_dl, 5, 2, alignment=Qt.AlignmentFlag.AlignRight)
+        
+        parent_layout.addWidget(group)
+        
         
     def create_hyperparameters_section(self, parent_layout):
         """Crea la sección de hiperparámetros"""
-        group = QGroupBox("Hiperparámetros de Entrenamiento")
+        group = QGroupBox("4. Hiperparámetros de Entrenamiento") # Numeración actualizada
         group.setStyleSheet("""
             QGroupBox {
                 font-size: 14px;
@@ -266,6 +487,27 @@ class VistaDLEntrenamiento(QWidget):
                 padding: 8px;
                 font-size: 13px;
             }
+            QComboBox QListView { 
+                background-color: #2C3E50; 
+                color: #ECF0F1; 
+                border: 1px solid #3498DB; 
+                padding: 4px; 
+                outline: 0px; 
+            }
+            QComboBox QListView::item { 
+                background-color: transparent; 
+                color: #ECF0F1; 
+                min-height: 25px; 
+                padding: 0px 5px; 
+            }
+            QComboBox QListView::item:selected {
+                background-color: #4A6B8A; 
+                color: #ECF0F1; 
+            }
+            QComboBox QListView::item:hover {
+                background-color: #557CAC; 
+                color: #ECF0F1; 
+            }
         """)
         layout.addWidget(self.combo_optimizador, 4, 1)
         
@@ -277,9 +519,12 @@ class VistaDLEntrenamiento(QWidget):
         
         parent_layout.addWidget(group)
         
+        
     def create_training_section(self, parent_layout):
         """Crea la sección de configuración de entrenamiento"""
-        group = QGroupBox("Configuración de Entrenamiento")
+        # El comentario original decía create_training_section, pero la función se llamaba create_training_config_section
+        # Mantendré create_training_section para consistencia con init_ui
+        group = QGroupBox("5. Configuración de Entrenamiento Adicional") # Numeración actualizada
         group.setStyleSheet("""
             QGroupBox {
                 font-size: 14px;
@@ -327,9 +572,12 @@ class VistaDLEntrenamiento(QWidget):
         
         parent_layout.addWidget(group)
         
+        
     def create_progress_section(self, parent_layout):
         """Crea la sección de progreso"""
-        group = QGroupBox("Progreso del Entrenamiento")
+        # El comentario original decía create_progress_section, pero la función se llamaba create_progress_section_dl
+        # Mantendré create_progress_section para consistencia con init_ui
+        group = QGroupBox("6. Progreso del Entrenamiento") # Numeración actualizada
         group.setStyleSheet("""
             QGroupBox {
                 font-size: 14px;
@@ -579,3 +827,63 @@ class VistaDLEntrenamiento(QWidget):
         self.btn_detener.setEnabled(False)
         
         self.log_entrenamiento.append("⏹ Entrenamiento detenido por el usuario")
+
+    # --- Métodos para manejo de fuentes de datos por profesión (DL) ---
+    def _handle_select_folder_dl(self):
+        folder_path = QFileDialog.getExistingDirectory(self, "Seleccionar Carpeta de Datos para la Profesión (DL)")
+        if folder_path:
+            self.line_edit_selected_folder_dl.setText(folder_path)
+            print(f"Carpeta seleccionada (DL): {folder_path}")
+        else:
+            print("Selección de carpeta cancelada (DL).")
+
+    def _handle_add_profession_data_dl(self):
+        profesion = self.line_edit_profession_dl.text().strip()
+        ruta_carpeta = self.line_edit_selected_folder_dl.text().strip()
+
+        if not profesion:
+            QMessageBox.warning(self, "Campo Vacío", "Por favor, ingrese una profesión.")
+            self.line_edit_profession_dl.setFocus()
+            return
+        
+        if not ruta_carpeta:
+            QMessageBox.warning(self, "Campo Vacío", "Por favor, seleccione una carpeta de datos.")
+            self.btn_select_folder_dl.setFocus()
+            return
+
+        # Contar archivos en la carpeta
+        num_archivos = 0
+        try:
+            if os.path.isdir(ruta_carpeta):
+                num_archivos = len([f for f in os.listdir(ruta_carpeta) if os.path.isfile(os.path.join(ruta_carpeta, f))])
+        except Exception as e:
+            print(f"Error al contar archivos en {ruta_carpeta}: {e}")
+            QMessageBox.warning(self, "Error Carpeta", f"No se pudo acceder o contar archivos en la carpeta:\n{ruta_carpeta}\n\nError: {e}")
+
+        item_text = f"Profesión: {profesion}  |  Carpeta: {ruta_carpeta} (Archivos: {num_archivos})"
+        
+        # Chequeo de duplicado lógico (sin contar archivos)
+        items_actuales_text = [self.list_widget_data_sources_dl.item(i).text() for i in range(self.list_widget_data_sources_dl.count())]
+        profesion_carpeta_text_base = f"Profesión: {profesion}  |  Carpeta: {ruta_carpeta}"
+        for item_existente in items_actuales_text:
+            if item_existente.startswith(profesion_carpeta_text_base):
+                QMessageBox.information(self, "Duplicado", "Esta combinación de profesión y carpeta (independientemente del número de archivos) ya ha sido agregada.")
+                return
+
+        self.list_widget_data_sources_dl.addItem(item_text)
+        print(f"Datos asociados (DL): {item_text}")
+
+        self.line_edit_profession_dl.clear()
+        self.line_edit_selected_folder_dl.clear()
+        self.line_edit_profession_dl.setFocus()
+
+    def _handle_remove_source_dl(self):
+        selected_items = self.list_widget_data_sources_dl.selectedItems()
+        if not selected_items:
+            print("Ningún elemento seleccionado para quitar (DL).")
+            return
+        
+        for item in selected_items:
+            item_text = item.text()
+            self.list_widget_data_sources_dl.takeItem(self.list_widget_data_sources_dl.row(item))
+            print(f"Elemento quitado (DL): {item_text}")

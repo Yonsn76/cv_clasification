@@ -355,7 +355,7 @@ class MainWindow(QMainWindow):
         self.central_stacked_widget.addWidget(self.inicio_page_widget)
 
         # Página 1: Entrenamiento
-        self.entrenamiento_page_widget = seleccion() 
+        self.entrenamiento_page_widget = seleccion(parent_window=self) 
         self.entrenamiento_page_widget.setObjectName("EntrenamientoPage")
         self.central_stacked_widget.addWidget(self.entrenamiento_page_widget)
 
@@ -398,9 +398,17 @@ class MainWindow(QMainWindow):
         self.color_sidebar_button_hover_celeste = "#4A5568"; self.color_sidebar_button_active_hover_bg = "#35424D"
         self.color_titlebar_button_hover = "#3A4045"; self.color_titlebar_close_hover = self.color_accent_red
         darker_accent = QColor(self.color_accent_red).darker(120); self.color_titlebar_close_pressed = darker_accent.name()
+
+        # Colores para QComboBox tema oscuro
+        self.color_combo_bg = "#2C3E50"
+        self.color_combo_border = "#34495E"
+        self.color_combo_hover_bg = "#34495E"
+        self.color_combo_item_selected_bg = "#4A6B8A"
+        self.color_combo_text = "#ECF0F1"
+
     def init_light_theme_colors(self):
         self.color_sidebar_bg = "#E8EAF6"; self.color_central_bg = "#FAFAFA"
-        self.color_text_light = "#263238"; self.color_text_medium = "#546E7A"
+        self.color_text_light = "#263238"; self.color_text_medium = "#546E7A" # Colores de texto oscuros para tema claro
         self.color_accent_red = "#D32F2F"; self.color_accent_blue_link = "#1976D2"
         self.color_titlebar_bg = "#E0E0E0"; self.color_window_border = "#BDBDBD"
         self.color_sidebar_icon_inactive = "#78909C"; self.color_sidebar_button_active_bg = "#C5CAE9"
@@ -408,19 +416,38 @@ class MainWindow(QMainWindow):
         self.color_titlebar_button_hover = "#CFD8DC"; self.color_titlebar_close_hover = self.color_accent_red
         darker_accent = QColor(self.color_accent_red).darker(120); self.color_titlebar_close_pressed = darker_accent.name()
 
+        # Colores para QComboBox tema claro
+        self.color_combo_bg = "#CFD8DC"
+        self.color_combo_border = "#B0BEC5"
+        self.color_combo_hover_bg = "#B0BEC5"
+        self.color_combo_item_selected_bg = "#90A4AE"
+        self.color_combo_text = "#263238"
+
     def open_theme_options(self):
-        items = ["Color de Acento", "Color de Fondo Principal", "Fuente de la Aplicación", 
+        items = ["Color de Acento", "Color de Fondo Principal", "Color de Texto Global", "Fuente de la Aplicación", 
                  "Tema Oscuro (Predefinido)", "Tema Claro (Predefinido)"]
         item, ok = QInputDialog.getItem(self, "Configuración de Apariencia",
                                         "Selecciona qué quieres cambiar:", items, 0, False)
         if ok and item:
             if item == "Color de Acento": self.change_accent_color()
             elif item == "Color de Fondo Principal": self.change_main_background_color()
+            elif item == "Color de Texto Global": self.change_global_text_color()
             elif item == "Fuente de la Aplicación": self.change_application_font()
             elif item == "Tema Oscuro (Predefinido)":
                 self.init_dark_theme_colors(); self.apply_stylesheet(); self.update_dependent_widgets_color()
             elif item == "Tema Claro (Predefinido)":
                 self.init_light_theme_colors(); self.apply_stylesheet(); self.update_dependent_widgets_color()
+
+    def change_global_text_color(self):
+        initial_color = QColor(self.color_text_light)
+        new_color = QColorDialog.getColor(initial_color, self, "Seleccionar Color de Texto Global")
+        if new_color.isValid():
+            self.color_text_light = new_color.name()
+            self.color_text_medium = new_color.name() # Se iguala al color de texto principal
+            # La lógica en change_main_background_color y en init_light_theme_colors
+            # puede anular esto si el fondo es muy claro, para asegurar legibilidad.
+            self.apply_stylesheet()
+            self.update_dependent_widgets_color()
 
     def change_accent_color(self):
         initial_color = QColor(self.color_accent_red)
@@ -462,9 +489,28 @@ class MainWindow(QMainWindow):
             self.title_bar.btn_theme.setIcon(get_icon("paintbrush", color_str=self.color_text_light))
         for btn in self.sidebar_buttons:
             if btn.property("active") == "true": 
-                btn._update_icon_pixmap(True) 
+                btn._update_icon_pixmap(True) # El color del icono activo ya usa self.color_accent_red
             else:
-                btn._update_icon_pixmap(False)
+                btn._update_icon_pixmap(False) # El icono inactivo usa self.color_sidebar_icon_inactive
+
+        # Actualizar vistas hijas si tienen un método update_theme_colors
+        # Esto es importante para que las vistas como ML y DL puedan refrescar sus propios estilos.
+        # Asumimos que las vistas de entrenamiento están directamente en el stacked widget.
+        current_page_widget = self.central_stacked_widget.currentWidget()
+        if hasattr(current_page_widget, 'update_theme_colors'):
+            current_page_widget.update_theme_colors(
+                main_text_color=self.color_text_light,
+                medium_text_color=self.color_text_medium,
+                central_bg_color=self.color_central_bg,
+                window_border_color=self.color_window_border,
+                accent_color=self.color_accent_red,
+                # Pasar más colores si son necesarios para las sub-vistas
+                combo_bg_color=self.color_combo_bg,
+                combo_text_color=self.color_combo_text,
+                combo_border_color=self.color_combo_border,
+                combo_hover_bg_color=self.color_combo_hover_bg,
+                combo_item_selected_bg_color=self.color_combo_item_selected_bg
+            )
 
     def handle_sidebar_button_click(self):
         clicked_button = self.sender()
@@ -548,19 +594,19 @@ class MainWindow(QMainWindow):
                 padding-bottom: 2px;
             }}
             SidebarButtonWidget #SidebarTextLabel {{
-                color: {self.color_sidebar_icon_inactive};
+                color: {self.color_text_medium}; /* Usar color de texto medio del tema */
                 font-size: 9pt;
             }}
 
             /* Iconos y texto - estado seleccionado */
             SidebarButtonWidget[active="true"] #SidebarTextLabel {{
-                color: #FFFFFF;
+                color: {self.color_text_light}; /* Usar color de texto principal del tema */
                 font-weight: bold;
             }}
 
             /* Iconos y texto - hover */
             SidebarButtonWidget[active="false"]:hover #SidebarTextLabel {{
-                color: #FFFFFF;
+                color: {self.color_text_light}; /* Usar color de texto principal del tema */
                 font-weight: 500;
             }}
 
@@ -703,6 +749,58 @@ class MainWindow(QMainWindow):
             QPushButton[objectName^="NotifActionButton_"]:hover {{ background-color: {color_notif_action_button_hover_bg}; }}
             QPushButton#NotifActionButton_critical {{ background-color: {self.color_accent_red}; }}
             QPushButton#NotifActionButton_critical:hover {{ background-color: {QColor(self.color_accent_red).lighter(110).name()}; }}
+
+            /* Estilos para QComboBox */
+            QComboBox {{
+                background-color: {self.color_combo_bg};
+                color: {self.color_combo_text};
+                border: 1px solid {self.color_combo_border};
+                padding: 5px 10px;
+                border-radius: 4px;
+                min-height: 25px; /* Ajusta según necesidad */
+            }}
+            QComboBox:hover {{
+                background-color: {self.color_combo_hover_bg};
+                border: 1px solid {QColor(self.color_combo_border).lighter(110).name() if QColor(self.color_combo_border).lightnessF() < 0.5 else QColor(self.color_combo_border).darker(110).name()};
+            }}
+            QComboBox:on {{ /* Estilo cuando el desplegable está abierto */
+                background-color: {self.color_combo_hover_bg};
+                border: 1px solid {self.color_accent_blue_link}; /* Usa tu color de acento para el borde abierto */
+            }}
+            QComboBox::drop-down {{
+                subcontrol-origin: padding;
+                subcontrol-position: top right;
+                width: 20px; /* Ajusta el ancho del área de la flecha */
+                border-left-width: 1px;
+                border-left-color: {self.color_combo_border};
+                border-left-style: solid;
+                border-top-right-radius: 3px; /* Para que coincida con el border-radius del QComboBox */
+                border-bottom-right-radius: 3px;
+            }}
+            /* QComboBox::down-arrow: Se deja para la flecha estándar de Qt por ahora */
+
+            QComboBox QListView {{ /* La lista desplegable, usando QListView */
+                background-color: {self.color_combo_bg};
+                color: {self.color_combo_text};
+                border: 1px solid {self.color_accent_blue_link}; /* Borde cuando está abierto */
+                padding: 4px; 
+                outline: 0px; 
+            }}
+            QComboBox QListView::item {{ 
+                background-color: transparent; /* Fondo del ítem transparente por defecto */
+                color: {self.color_combo_text}; 
+                min-height: 25px; 
+                padding: 0px 5px; 
+            }}
+            QComboBox QListView::item:selected {{
+                background-color: {self.color_combo_item_selected_bg};
+                color: {self.color_combo_text}; 
+            }}
+            QComboBox QListView::item:hover {{
+                background-color: {QColor(self.color_combo_item_selected_bg).lighter(115).name() if QColor(self.color_combo_item_selected_bg).lightnessF() < 0.5 else QColor(self.color_combo_item_selected_bg).darker(115).name()};
+                color: {self.color_combo_text};
+            }}
+            /* Fin de estilos para QComboBox */
         """)
 
 

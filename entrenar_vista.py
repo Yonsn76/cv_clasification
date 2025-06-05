@@ -47,16 +47,6 @@ class ModelImageIndicator(QLabel):
 
         if not self._original_pixmap:
              self.setText(f"{self.indicator_type.upper()}")
-             # self.setStyleSheet(""" Eliminar QSS en línea
-             #    QLabel {
-             #        background-color: #34495E;
-             #        color: white;
-             #        border-radius: 10px;
-             #        font-size: 16px;
-             #        font-weight: bold;
-             #        padding: 5px;
-             #    }
-             # """)
              self.setObjectName("CardModelIndicator") # Añadir objectName
         
         self.updateGeometry()
@@ -111,18 +101,6 @@ class TrainingOptionCard(QFrame):
         self.setMinimumHeight(330) # Reducida la altura mínima de la tarjeta
 
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        # self.setStyleSheet(""" Eliminar QSS en línea
-        #     QFrame#TrainingOptionCard {
-        #         background-color: #34495E;
-        #         border-radius: 15px;
-        #         border: 2px solid #2C3E50;
-        #         padding: 20px; /* Aumentado un poco el padding para mejor estética */
-        #     }
-        #     QFrame#TrainingOptionCard:hover {
-        #         border: 2px solid #3498DB;
-        #         background-color: #3C5A78;
-        #     }
-        # """)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(10, 15, 10, 10)
@@ -142,43 +120,12 @@ class TrainingOptionCard(QFrame):
         self.main_button.setObjectName("CardMainButton") # Añadir objectName
         self.main_button.setProperty("optionType", self.option_type) # Añadir propiedad dinámica
         self.main_button.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
-        # self.main_button.setStyleSheet(f""" Eliminar QSS en línea
-        #     QPushButton {{
-        #         background-color: {button_color};
-        #         color: white;
-        #         border: none;
-        #         border-radius: 20px; /* Un poco más redondeado */
-        #         font-size: 15px; /* Un poco más grande */
-        #         font-weight: bold;
-        #         padding: 10px 20px; /* Padding ajustado */
-        #     }}
-        #     QPushButton:hover {{
-        #         background-color: {QColor(button_color).lighter(120).name()};
-        #     }}
-        #     QPushButton:pressed {{
-        #         background-color: {QColor(button_color).darker(120).name()};
-        #     }}
-        # """)
         self.main_button.clicked.connect(lambda: self.option_clicked.emit(self.option_type))
         layout.addWidget(self.main_button, 0, Qt.AlignmentFlag.AlignCenter)
 
         self.config_button = QPushButton("Más Opciones") # Texto de ejemplo
         self.config_button.setObjectName("CardConfigButton") # Añadir objectName
         self.config_button.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
-        # self.config_button.setStyleSheet(""" Eliminar QSS en línea
-        #     QPushButton {
-        #         background-color: transparent;
-        #         color: #7F8C8D;
-        #         border: 1px solid #7F8C8D;
-        #         border-radius: 18px; /* Un poco más redondeado */
-        #         font-size: 13px; /* Un poco más grande */
-        #         padding: 8px 18px; /* Padding ajustado */
-        #     }
-        #     QPushButton:hover {
-        #         color: #BDC3C7;
-        #         border: 1px solid #BDC3C7;
-        #     }
-        # """)
         layout.addWidget(self.config_button, 0, Qt.AlignmentFlag.AlignCenter)
 
         if option_type == "ml":
@@ -191,17 +138,12 @@ class TrainingOptionCard(QFrame):
         self.description_label.setWordWrap(True)
         self.description_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.description_label.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.MinimumExpanding)
-        # self.description_label.setStyleSheet(""" Eliminar QSS en línea
-        #     color: #95A5A6;
-        #     font-size: 12px; /* Un poco más grande */
-        #     margin: 10px 0px; /* Margen vertical */
-        #     padding: 8px;
-        # """)
         layout.addWidget(self.description_label, 0, Qt.AlignmentFlag.AlignCenter)
 
 class seleccion(QWidget):
-    def __init__(self, parent=None):
+    def __init__(self, parent_window=None, parent=None):
         super().__init__(parent)
+        self.main_window_ref = parent_window
         # self.setObjectName("VistaMejorar") # Eliminar objectName innecesario
         
         # Crear el QStackedWidget
@@ -235,8 +177,8 @@ class seleccion(QWidget):
         self.setup_vista_seleccion(self.vista_seleccion) # Pasar vista_seleccion para configurar su contenido
 
         # Inicializar las vistas de entrenamiento
-        self.vista_ml = VistaMLEntrenamiento()
-        self.vista_dl = VistaDLEntrenamiento()
+        self.vista_ml = VistaMLEntrenamiento(self.main_window_ref) # Pasar la referencia de MainWindow
+        self.vista_dl = VistaDLEntrenamiento(self.main_window_ref) # Pasar la referencia de MainWindow
         
         # Conectar señales de volver
         self.vista_ml.volver_solicitado.connect(lambda: self.stack.setCurrentIndex(0))
@@ -313,14 +255,6 @@ class seleccion(QWidget):
         description_label.setWordWrap(True)
         description_label.setObjectName("InstruccionEntrenamiento") # Añadir objectName
         description_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        # description_label.setStyleSheet(""" Eliminar QSS en línea
-        #     color: #95A5A6;
-        #     font-size: 12px;
-        #     margin: 20px 40px;
-        #     padding: 15px;
-        #     background-color: rgba(52, 73, 94, 0.3);
-        #     border-radius: 8px;
-        # """)
         layout.addWidget(description_label)
 
     def handle_training_option(self, option_type):
@@ -347,7 +281,6 @@ class VistaHerramientas(QWidget):
         label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         font = label.font(); font.setPointSize(16); label.setFont(font)
         layout.addWidget(label)
-        # self.setStyleSheet("background-color: #2a3b4c; color: #D0D0D0;") # Eliminar QSS en línea
 
 class VistaCentroAccion(QWidget):
     def __init__(self, parent=None):
@@ -357,4 +290,3 @@ class VistaCentroAccion(QWidget):
         label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         font = label.font(); font.setPointSize(16); label.setFont(font)
         layout.addWidget(label)
-        # self.setStyleSheet("background-color: #3c2a4c; color: #D0D0D0;") # Eliminar QSS en línea
