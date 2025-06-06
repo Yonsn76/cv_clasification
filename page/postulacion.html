@@ -102,7 +102,7 @@
             <h1>Formulario de Postulación</h1>
         </header>
 
-        <form id="postulacionForm" action="http://localhost:5000/api/postulaciones" method="POST" enctype="multipart/form-data">
+        <form id="postulacionForm" action="${API_BASE_URL}/api/postulaciones" method="POST" enctype="multipart/form-data">
             <div class="form-group">
                 <label for="nombre">Nombre Completo:</label>
                 <input type="text" id="nombre" name="nombre" required>
@@ -139,6 +139,7 @@
     </div>
 
     <script>
+        const API_BASE_URL = "http://localhost:5000";
         document.getElementById('cv').addEventListener('change', function(e) {
             const fileName = e.target.files[0]?.name || 'Ningún archivo seleccionado';
             document.getElementById('fileName').textContent = fileName;
@@ -150,7 +151,7 @@
             const formData = new FormData(this);
 
             try {
-                const response = await fetch('http://localhost:5000/api/postulaciones', {
+                const response = await fetch(`${API_BASE_URL}/api/postulaciones`, {
                     method: 'POST',
                     body: formData
                 });

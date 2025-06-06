@@ -144,6 +144,7 @@
     </div>
 
     <script>
+        const API_BASE_URL = "http://localhost:5000";
         // Estas funciones son placeholders.
         // En una implementación real, interactuarían con un backend o QWebChannel.
         async function loadApplicants() {
@@ -153,7 +154,7 @@
             noApplicantsMessage.style.display = 'none';
 
             try {
-                const response = await fetch('http://127.0.0.1:5000/api/postulaciones');
+                const response = await fetch(`${API_BASE_URL}/api/postulaciones`);
                 if (!response.ok) {
                     throw new Error('Error al obtener datos de postulantes');
                 }
@@ -168,7 +169,7 @@
                 const classifiedApplicants = [];
                 for (const app of applicants) {
                     try {
-                        const classifyResponse = await fetch(`http://127.0.0.1:5000/api/postulaciones/classify/${app.id}`, { method: 'POST' });
+                        const classifyResponse = await fetch(`${API_BASE_URL}/api/postulaciones/classify/${app.id}`, { method: 'POST' });
                         if (classifyResponse.ok) {
                             const classificationResult = await classifyResponse.json();
                             app.puesto_clasificacion = classificationResult.puesto;
@@ -223,7 +224,7 @@
             selectedModelInfo.textContent = '';
 
             try {
-                const response = await fetch('http://127.0.0.1:5000/api/models');
+                const response = await fetch(`${API_BASE_URL}/api/models`);
                 if (!response.ok) {
                     throw new Error('Error al obtener modelos');
                 }
@@ -244,7 +245,7 @@
                 });
 
                 // Cargar modelo activo actual
-                const activeResponse = await fetch('http://127.0.0.1:5000/api/models/active');
+                const activeResponse = await fetch(`${API_BASE_URL}/api/models/active`);
                 if (activeResponse.ok) {
                     const activeModel = await activeResponse.json();
                     if (activeModel && activeModel.name) {
@@ -272,7 +273,7 @@
             const isDeep = selectedOption.dataset.isDeep === 'true';
 
             try {
-                const response = await fetch('http://127.0.0.1:5000/api/models/select', {
+                const response = await fetch(`${API_BASE_URL}/api/models/select`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ model_name: modelName, is_deep: isDeep })
@@ -292,13 +293,13 @@
 
         function viewCv(applicantId) {
             // Abrir el CV en una nueva pestaña/ventana para descarga
-            window.open(`http://127.0.0.1:5000/api/postulaciones/cv/${applicantId}`, '_blank');
+            window.open(`${API_BASE_URL}/api/postulaciones/cv/${applicantId}`, '_blank');
         }
 
         async function deleteApplicant(applicantId) {
             if (confirm("¿Estás seguro de que deseas eliminar al postulante con ID: " + applicantId + "?")) {
                 try {
-                const response = await fetch(`http://127.0.0.1:5000/api/postulaciones/delete/${applicantId}`, {
+                const response = await fetch(`${API_BASE_URL}/api/postulaciones/delete/${applicantId}`, {
                         method: 'DELETE'
                     });
                     const result = await response.json();
