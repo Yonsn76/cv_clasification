@@ -2,11 +2,13 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QPushButton, QProgressBar, QTextEdit,
                              QComboBox, QGroupBox, QGridLayout, QLineEdit,
                              QListWidget, QFileDialog, QMessageBox)
-from PyQt6.QtCore import Qt, pyqtSignal, QThread
+from PyQt6.QtCore import Qt, pyqtSignal, QThread, QUrl
 from PyQt6.QtGui import QFont, QDragEnterEvent, QDropEvent
+from PyQt6.QtMultimedia import QSoundEffect
 import os
 import PyPDF2
 from models.cv_classifier import CVClassifier
+from notificacion.model_notifications import ModelNotifications
 
 
 class DropGroupBox(QGroupBox):
@@ -110,6 +112,11 @@ class VistaMLEntrenamiento(QWidget):
         self.profession_folders = {}
         self.selected_folder = None
         
+        # Configurar sonido de éxito
+        self.success_sound = QSoundEffect()
+        self.success_sound.setSource(QUrl.fromLocalFile("assets/sounds/success.wav"))
+        self.success_sound.setVolume(0.5)
+
     def init_ui(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(30, 25, 30, 25)
@@ -313,11 +320,27 @@ class VistaMLEntrenamiento(QWidget):
         self.training_log.append(f"⏳ {message}")
 
     def on_training_completed(self, results):
+        # Detener animaciones y actualizar UI
+        self.progress_bar.setValue(100)
         self.training_log.append("=" * 50)
         self.training_log.append("✅ ¡Entrenamiento completado exitosamente!")
         self.training_log.append(f"📈 Accuracy: {results.get('accuracy', 0):.3f}")
         self.training_log.append("💾 Modelo guardado correctamente.")
+        
+        # Reproducir sonido de éxito
+        self.success_sound.play()
+        
+        # Mostrar notificación
+        ModelNotifications.model_training_complete(
+            model_name=results.get('model_name', 'Modelo ML'),
+            accuracy=results.get('accuracy', 0),
+            parent=self
+        )
+        
+        # Habilitar botón de entrenamiento
         self.btn_train.setEnabled(True)
+        
+        # Emitir señal de completado
         self.entrenamiento_completado.emit()
 
     def on_training_failed(self, error_message):

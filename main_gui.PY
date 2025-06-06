@@ -362,8 +362,13 @@ class MainWindow(QMainWindow):
         self.right_toolbar = QToolBar("Barra de Herramientas Derecha"); self.right_toolbar.setOrientation(Qt.Orientation.Vertical); self.right_toolbar.setIconSize(QSize(20,20))
         try: self.addToolBar(Qt.ToolBarArea.RightToolBarArea, self.right_toolbar)
         except Exception as e: print(f"Could not add toolbar directly: {e}.")
-        action_pc = QAction(get_icon("pc"),"PC",self); action_windows = QAction(get_icon("windows"),"Windows",self)
+        action_pc = QAction(get_icon("pc"),"Documentación",self); action_windows = QAction(get_icon("windows"),"Windows",self)
         action_joystick = QAction(get_icon("joystick"),"Juegos",self); action_dots = QAction(get_icon("dots"),"Más",self)
+
+        # Conectar la acción PC con la documentación
+        action_pc.triggered.connect(self.open_documentation)
+        action_pc.setToolTip("Abrir documentación del sistema")
+
         self.right_toolbar.addAction(action_pc); self.right_toolbar.addAction(action_windows); self.right_toolbar.addAction(action_joystick); self.right_toolbar.addAction(action_dots)
         
         self.apply_stylesheet()
@@ -523,6 +528,15 @@ class MainWindow(QMainWindow):
             if self.app_font_size_pt <= 0 : self.app_font_size_pt = 10 
             self.apply_stylesheet(); self.update_dependent_widgets_color()
             
+    def open_documentation(self):
+        """Abre la ventana de documentación del sistema"""
+        try:
+            # Crear y mostrar la ventana de documentación
+            self.documentation_dialog = DocumentationDialog(self)
+            self.documentation_dialog.show()
+        except Exception as e:
+            print(f"Error al abrir la documentación: {e}")
+
     def update_dependent_widgets_color(self):
         if hasattr(self, 'actualizar_button_inicio'): 
             self.actualizar_button_inicio.set_accent_color(self.color_accent_red)

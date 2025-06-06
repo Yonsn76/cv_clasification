@@ -118,25 +118,34 @@ class ModelManager:
         models = []
         
         # Modelos tradicionales
-        for metadata_file in self.models_dir.glob("*_metadata.json"):
-            try:
-                model_name = metadata_file.stem.replace('_metadata', '')
-                metadata = self.load_model_metadata(model_name, is_deep_learning=False)
-                if metadata:
-                    models.append(metadata)
-            except Exception as e:
-                print(f"⚠️ Error cargando modelo {metadata_file}: {e}")
+        if os.path.exists(self.models_dir):
+            for model_dir in os.listdir(self.models_dir):
+                model_path = os.path.join(self.models_dir, model_dir)
+                if os.path.isdir(model_path):
+                    try:
+                        metadata_path = os.path.join(model_path, f"{model_dir}_metadata.json")
+                        if os.path.exists(metadata_path):
+                            with open(metadata_path, 'r', encoding='utf-8') as f:
+                                metadata_dict = json.load(f)
+                                metadata = ModelMetadata(**metadata_dict)
+                                models.append(metadata)
+                    except Exception as e:
+                        print(f"⚠️ Error cargando modelo {model_dir}: {e}")
         
         # Modelos de Deep Learning
-        if include_deep_learning:
-            for metadata_file in self.deep_models_dir.glob("*_metadata.json"):
-                try:
-                    model_name = metadata_file.stem.replace('_metadata', '')
-                    metadata = self.load_model_metadata(model_name, is_deep_learning=True)
-                    if metadata:
-                        models.append(metadata)
-                except Exception as e:
-                    print(f"⚠️ Error cargando modelo DL {metadata_file}: {e}")
+        if include_deep_learning and os.path.exists(self.deep_models_dir):
+            for model_dir in os.listdir(self.deep_models_dir):
+                model_path = os.path.join(self.deep_models_dir, model_dir)
+                if os.path.isdir(model_path):
+                    try:
+                        metadata_path = os.path.join(model_path, f"{model_dir}_metadata.json")
+                        if os.path.exists(metadata_path):
+                            with open(metadata_path, 'r', encoding='utf-8') as f:
+                                metadata_dict = json.load(f)
+                                metadata = ModelMetadata(**metadata_dict)
+                                models.append(metadata)
+                    except Exception as e:
+                        print(f"⚠️ Error cargando modelo DL {model_dir}: {e}")
         
         # Ordenar por fecha de creación (más recientes primero)
         models.sort(key=lambda x: x.creation_date, reverse=True)

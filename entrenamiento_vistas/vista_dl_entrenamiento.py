@@ -1,12 +1,15 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QPushButton, QProgressBar, QTextEdit,
                              QComboBox, QGroupBox, QGridLayout, QLineEdit,
-                             QListWidget, QFileDialog, QMessageBox)
-from PyQt6.QtCore import Qt, pyqtSignal, QThread
+                             QListWidget, QFileDialog, QMessageBox, QFrame)
+from PyQt6.QtCore import Qt, pyqtSignal, QThread, QUrl
 from PyQt6.QtGui import QFont, QDragEnterEvent, QDropEvent
+from PyQt6.QtMultimedia import QSoundEffect
 import os
 import PyPDF2
 from models.deep_learning_classifier import DeepLearningClassifier
+import tensorflow as tf
+from notificacion.model_notifications import ModelNotifications
 
 
 class DropGroupBox(QGroupBox):
@@ -87,7 +90,41 @@ class DLTrainingWorker(QThread):
                         self.progress_updated.emit(progress, f"Procesando: {filename}")
 
             self.progress_updated.emit(70, f"Entrenando modelo {self.model_type.upper()}...")
-            results = self.classifier.train_model(cv_data, model_type=self.model_type, epochs=self.epochs, batch_size=self.batch_size)
+            
+            # Crear un callback personalizado para actualizar el progreso de las épocas
+            class EpochProgressCallback(tf.keras.callbacks.Callback):
+                def __init__(self, worker, total_epochs):
+                    super().__init__()
+                    self.worker = worker
+                    self.total_epochs = total_epochs
+
+                def on_epoch_begin(self, epoch, logs=None):
+                    self.worker.epoch_updated.emit(epoch + 1, self.total_epochs, {
+                        'loss': 0,
+                        'accuracy': 0,
+                        'val_loss': 0,
+                        'val_accuracy': 0
+                    })
+
+                def on_epoch_end(self, epoch, logs=None):
+                    logs = logs or {}
+                    self.worker.epoch_updated.emit(epoch + 1, self.total_epochs, {
+                        'loss': logs.get('loss', 0),
+                        'accuracy': logs.get('accuracy', 0),
+                        'val_loss': logs.get('val_loss', 0),
+                        'val_accuracy': logs.get('val_accuracy', 0)
+                    })
+
+            # Agregar el callback personalizado al entrenamiento
+            epoch_callback = EpochProgressCallback(self, self.epochs)
+            results = self.classifier.train_model(
+                cv_data, 
+                model_type=self.model_type, 
+                epochs=self.epochs, 
+                batch_size=self.batch_size,
+                callbacks=[epoch_callback]
+            )
+
             if results.get('success', False):
                 self.progress_updated.emit(90, "Guardando modelo...")
                 save_success = self.classifier.save_model(self.model_name)
@@ -115,6 +152,13 @@ class VistaDLEntrenamiento(QWidget):
         self.init_ui()
         self.profession_folders = {}
         self.selected_folder = None
+        self.current_epoch = 0
+        self.total_epochs = 0
+        
+        # Configurar sonido de éxito
+        self.success_sound = QSoundEffect()
+        self.success_sound.setSource(QUrl.fromLocalFile("assets/sounds/success.wav"))
+        self.success_sound.setVolume(0.5)
         
     def init_ui(self):
         layout = QVBoxLayout(self)
@@ -215,25 +259,97 @@ class VistaDLEntrenamiento(QWidget):
         parent_layout.addWidget(group)
 
     def create_training_log(self, parent_layout):
+        """Crea la sección de registro y progreso del entrenamiento"""
         group = QGroupBox("3. Registro y Progreso del Entrenamiento")
         group.setObjectName("LogGroupDL")
-        layout = QVBoxLayout(group); layout.setSpacing(15)
-        self.label_epoca = QLabel("Época: 0 / 0"); self.label_epoca.setObjectName("DLEpochLabel")
+        layout = QVBoxLayout(group)
+        layout.setSpacing(15)
+
+        # Etiqueta de época con estilo mejorado
+        self.label_epoca = QLabel("Época: 0 / 0")
+        self.label_epoca.setObjectName("DLEpochLabel")
+        self.label_epoca.setStyleSheet("""
+            QLabel#DLEpochLabel {
+                font-size: 14px;
+                font-weight: bold;
+                color: #2ECC71;
+                padding: 5px;
+                border-radius: 5px;
+                background-color: rgba(46, 204, 113, 0.1);
+            }
+        """)
         layout.addWidget(self.label_epoca)
-        self.progress_bar = QProgressBar(); self.progress_bar.setRange(0, 100); self.progress_bar.setValue(0)
+
+        # Barra de progreso con estilo mejorado
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setRange(0, 100)
+        self.progress_bar.setValue(0)
+        self.progress_bar.setFormat("%v%")
+        self.progress_bar.setStyleSheet("""
+            QProgressBar {
+                border: 2px solid #BDC3C7;
+                border-radius: 5px;
+                text-align: center;
+                height: 25px;
+            }
+            QProgressBar::chunk {
+                background-color: #2ECC71;
+                border-radius: 3px;
+            }
+        """)
         layout.addWidget(self.progress_bar)
-        metrics_layout = QHBoxLayout()
-        self.label_loss = QLabel("Loss: --"); self.label_loss.setObjectName("DLMetricLabel")
-        self.label_accuracy = QLabel("Accuracy: --"); self.label_accuracy.setObjectName("DLMetricLabel")
-        self.label_val_loss = QLabel("Val Loss: --"); self.label_val_loss.setObjectName("DLMetricLabel")
-        self.label_val_accuracy = QLabel("Val Acc: --"); self.label_val_accuracy.setObjectName("DLMetricLabel")
-        metrics_layout.addWidget(self.label_loss); metrics_layout.addWidget(self.label_accuracy); metrics_layout.addWidget(self.label_val_loss); metrics_layout.addWidget(self.label_val_accuracy)
-        layout.addLayout(metrics_layout)
+
+        # Panel de métricas con diseño mejorado
+        metrics_frame = QFrame()
+        metrics_frame.setObjectName("MetricsFrame")
+        metrics_frame.setStyleSheet("""
+            QFrame#MetricsFrame {
+                background-color: rgba(52, 73, 94, 0.1);
+                border-radius: 10px;
+                padding: 10px;
+            }
+        """)
+        metrics_layout = QHBoxLayout(metrics_frame)
+        metrics_layout.setSpacing(20)
+
+        # Crear etiquetas de métricas con estilos mejorados
+        self.label_loss = QLabel("Loss: --")
+        self.label_accuracy = QLabel("Accuracy: --")
+        self.label_val_loss = QLabel("Val Loss: --")
+        self.label_val_accuracy = QLabel("Val Acc: --")
+
+        for label in [self.label_loss, self.label_accuracy, self.label_val_loss, self.label_val_accuracy]:
+            label.setObjectName("DLMetricLabel")
+            label.setStyleSheet("""
+                QLabel#DLMetricLabel {
+                    font-size: 12px;
+                    font-weight: bold;
+                    padding: 5px 10px;
+                    border-radius: 5px;
+                    background-color: rgba(255, 255, 255, 0.8);
+                }
+            """)
+            metrics_layout.addWidget(label)
+
+        layout.addWidget(metrics_frame)
+
+        # Log de entrenamiento con estilo mejorado
         self.log_entrenamiento = QTextEdit()
         self.log_entrenamiento.setObjectName("DLTrainingLog")
-        self.log_entrenamiento.setMaximumHeight(120); self.log_entrenamiento.setReadOnly(True)
+        self.log_entrenamiento.setMaximumHeight(120)
+        self.log_entrenamiento.setReadOnly(True)
         self.log_entrenamiento.setPlaceholderText("Los logs del entrenamiento aparecerán aquí...")
+        self.log_entrenamiento.setStyleSheet("""
+            QTextEdit#DLTrainingLog {
+                background-color: #2C3E50;
+                color: #ECF0F1;
+                border: none;
+                border-radius: 5px;
+                padding: 10px;
+            }
+        """)
         layout.addWidget(self.log_entrenamiento)
+
         parent_layout.addWidget(group)
 
     def _update_add_button_state(self):
@@ -295,24 +411,38 @@ class VistaDLEntrenamiento(QWidget):
         except: return 0
             
     def start_dl_training(self):
+        """Inicia el entrenamiento del modelo"""
         if not self.profession_folders:
             QMessageBox.warning(self, "Sin Datos", "Agregue al menos una profesión.")
             return
+
         model_name = self.dl_model_name_input.text().strip()
         if not model_name:
             QMessageBox.warning(self, "Nombre Requerido", "Ingrese un nombre para el modelo.")
             return
 
         try:
-            epochs = int(self.dl_epochs_input.text()); batch_size = int(self.dl_batch_size_input.text())
+            epochs = int(self.dl_epochs_input.text())
+            batch_size = int(self.dl_batch_size_input.text())
+            if epochs <= 0 or batch_size <= 0:
+                raise ValueError("Los valores deben ser positivos")
         except ValueError:
-            QMessageBox.warning(self, "Parámetros Inválidos", "Épocas y Batch Size deben ser números.")
+            QMessageBox.warning(self, "Parámetros Inválidos", "Épocas y Batch Size deben ser números positivos.")
             return
 
         model_type = self.dl_model_type_combo.currentData()
-        self.progress_bar.setValue(0); self.log_entrenamiento.clear()
-        self.log_entrenamiento.append("🚀 Iniciando entrenamiento..."); self.btn_dl_train.setEnabled(False)
-        self.dl_training_worker = DLTrainingWorker(self.profession_folders, model_name, model_type, epochs, batch_size)
+        
+        # Reiniciar UI
+        self.progress_bar.setValue(0)
+        self.label_epoca.setText(f"Época: 0 / {epochs}")
+        self.log_entrenamiento.clear()
+        self.log_entrenamiento.append("🚀 Iniciando entrenamiento...")
+        self.btn_dl_train.setEnabled(False)
+
+        # Iniciar worker
+        self.dl_training_worker = DLTrainingWorker(
+            self.profession_folders, model_name, model_type, epochs, batch_size
+        )
         self.dl_training_worker.progress_updated.connect(self.update_dl_training_progress)
         self.dl_training_worker.epoch_updated.connect(self.update_epoch_metrics)
         self.dl_training_worker.training_completed.connect(self.on_dl_training_completed)
@@ -325,19 +455,55 @@ class VistaDLEntrenamiento(QWidget):
         self.log_entrenamiento.append(f"⏳ {message}")
 
     def update_epoch_metrics(self, current_epoch, total_epochs, metrics):
+        """Actualiza las métricas de la época actual"""
+        self.current_epoch = current_epoch
+        self.total_epochs = total_epochs
+        
+        # Actualizar etiqueta de época
         self.label_epoca.setText(f"Época: {current_epoch} / {total_epochs}")
+        
+        # Calcular y actualizar progreso
+        progress = int((current_epoch / total_epochs) * 100)
+        self.progress_bar.setValue(progress)
+        
+        # Actualizar métricas si están disponibles
         if metrics:
             self.label_loss.setText(f"Loss: {metrics.get('loss', '--'):.4f}")
             self.label_accuracy.setText(f"Acc: {metrics.get('accuracy', '--'):.4f}")
             self.label_val_loss.setText(f"Val Loss: {metrics.get('val_loss', '--'):.4f}")
             self.label_val_accuracy.setText(f"Val Acc: {metrics.get('val_accuracy', '--'):.4f}")
+            
+            # Agregar al log con formato mejorado
+            log_entry = f"Época {current_epoch}/{total_epochs} - "
+            log_entry += f"loss: {metrics.get('loss', '--'):.4f}, "
+            log_entry += f"acc: {metrics.get('accuracy', '--'):.4f}, "
+            log_entry += f"val_loss: {metrics.get('val_loss', '--'):.4f}, "
+            log_entry += f"val_acc: {metrics.get('val_accuracy', '--'):.4f}"
+            
+            self.log_entrenamiento.append(log_entry)
 
     def on_dl_training_completed(self, results):
+        # Detener animaciones y actualizar UI
+        self.progress_bar.setValue(100)
         self.log_entrenamiento.append("=" * 50)
         self.log_entrenamiento.append("✅ ¡Entrenamiento Deep Learning completado!")
         self.log_entrenamiento.append(f"🎯 Accuracy final: {results.get('accuracy', 0):.3f}")
         self.log_entrenamiento.append("💾 Modelo guardado correctamente.")
+        
+        # Reproducir sonido de éxito
+        self.success_sound.play()
+        
+        # Mostrar notificación
+        ModelNotifications.model_training_complete(
+            model_name=results.get('model_name', 'Modelo DL'),
+            accuracy=results.get('accuracy', 0),
+            parent=self
+        )
+        
+        # Habilitar botón de entrenamiento
         self.btn_dl_train.setEnabled(True)
+        
+        # Emitir señal de completado
         self.entrenamiento_completado.emit()
 
     def on_dl_training_failed(self, error_message):

@@ -92,11 +92,22 @@ class ModelStatusCard(QFrame):
 
     def set_model_loaded(self, model_name, model_type, professions):
         """Actualiza la tarjeta cuando se carga un modelo"""
+        print(f"Actualizando tarjeta con: {model_name}, {model_type}, profesiones: {professions}")  # Debug
         self.status_label.setText(f"✅ {model_name}")
-        self.info_label.setText(f"{model_type} • {len(professions)} profesiones")
+        
+        # Formatear el texto de profesiones
+        if professions and len(professions) > 0:
+            prof_text = f"{model_type} • {len(professions)} profesiones\n"
+            prof_list = ", ".join(professions[:3])  # Mostrar solo las primeras 3
+            if len(professions) > 3:
+                prof_list += f" y {len(professions)-3} más"
+            prof_text += f"({prof_list})"
+        else:
+            prof_text = f"{model_type} • No se detectaron profesiones"
+        
+        self.info_label.setText(prof_text)
         self.setProperty("status", "loaded")
         self._update_style()
-
 
     def set_no_model(self):
         """Actualiza la tarjeta cuando no hay modelo"""
@@ -407,11 +418,21 @@ class VistaCentroAccion(QWidget):
             if success:
                 self.current_loaded_model = model_name
                 self.current_model_is_dl = is_deep_learning
+                
+                # Obtener las profesiones directamente después de cargar
+                professions = []
+                if hasattr(classifier_to_use, 'label_encoder') and classifier_to_use.label_encoder is not None:
+                    professions = list(classifier_to_use.label_encoder.classes_)
+                
+                model_type = "Deep Learning" if is_deep_learning else "Machine Learning"
+                self.model_status_card.set_model_loaded(
+                    display_name, model_type, professions
+                )
+                
                 QMessageBox.information(
                     self, "Modelo Cargado",
-                    f"El modelo '{display_name}' ha sido cargado exitosamente."
+                    f"El modelo '{display_name}' ha sido cargado exitosamente.\nProfesiones disponibles: {len(professions)}"
                 )
-                self.update_model_status_ui()
             else:
                 self.current_loaded_model = None
                 self.current_model_is_dl = False
@@ -419,7 +440,7 @@ class VistaCentroAccion(QWidget):
                     self, "Error al Cargar",
                     f"No se pudo cargar el modelo '{display_name}'. Verifica su integridad."
                 )
-                self.update_model_status_ui()
+                self.model_status_card.set_no_model()
             
             self.update_ui_state()
 
@@ -430,7 +451,7 @@ class VistaCentroAccion(QWidget):
                 self, "Error Inesperado",
                 f"Ocurrió un error al cargar el modelo '{display_name}':\n{str(e)}"
             )
-            self.update_model_status_ui()
+            self.model_status_card.set_no_model()
             self.update_ui_state()
 
 
@@ -439,9 +460,13 @@ class VistaCentroAccion(QWidget):
             model_type = "Deep Learning" if self.current_model_is_dl else "Machine Learning"
             classifier = self.dl_classifier if self.current_model_is_dl else self.ml_classifier
             professions = []
-            if hasattr(classifier, 'is_model_loaded') and classifier.is_model_loaded():
-                 if hasattr(classifier, 'label_encoder') and classifier.label_encoder:
-                    professions = list(classifier.label_encoder.classes_)
+            
+            # Obtener las profesiones del clasificador cargado
+            if hasattr(classifier, 'label_encoder') and classifier.label_encoder is not None:
+                professions = list(classifier.label_encoder.classes_)
+                print(f"Profesiones encontradas: {professions}")  # Debug
+            else:
+                print("No se encontró label_encoder o está vacío")  # Debug
             
             self.model_status_card.set_model_loaded(
                 self.current_loaded_model, model_type, professions

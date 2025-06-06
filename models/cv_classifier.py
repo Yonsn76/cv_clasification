@@ -16,6 +16,7 @@ from sklearn.naive_bayes import MultinomialNB
 from sklearn.metrics import classification_report, accuracy_score
 from sklearn.preprocessing import LabelEncoder
 import joblib
+import datetime
 
 class CVClassifier:
     """Clasificador simplificado de CVs por profesiones"""
@@ -226,130 +227,107 @@ class CVClassifier:
             }
     
     def save_model(self, model_name='cv_classifier'):
-        """Guarda el modelo entrenado en una carpeta específica con el nombre del modelo"""
+        """Guarda el modelo entrenado y sus componentes"""
         if not self.is_trained:
-            raise ValueError("No hay modelo entrenado para guardar")
+            print("❌ El modelo no está entrenado")
+            return False
 
         try:
-            # Crear carpeta específica para el modelo
+            print(f"\\n=== Guardando modelo '{model_name}' ===")
+            
+            # Crear directorio para el modelo
             model_folder = os.path.join(self.model_dir, model_name)
             os.makedirs(model_folder, exist_ok=True)
-            print(f"📁 Creando carpeta del modelo: {model_folder}")
+            print(f"📁 Directorio del modelo: {model_folder}")
 
-            # Guardar vectorizador
-            vectorizer_path = os.path.join(model_folder, 'vectorizer.pkl')
-            joblib.dump(self.vectorizer, vectorizer_path)
-            print(f"✅ Vectorizador guardado: {vectorizer_path}")
+            # Guardar modelo
+            joblib.dump(self.classifier, os.path.join(model_folder, 'classifier.pkl'))
+            print("✅ Clasificador guardado")
 
-            # Guardar clasificador
-            classifier_path = os.path.join(model_folder, 'classifier.pkl')
-            joblib.dump(self.classifier, classifier_path)
-            print(f"✅ Clasificador guardado: {classifier_path}")
+            # Guardar vectorizer
+            joblib.dump(self.vectorizer, os.path.join(model_folder, 'vectorizer.pkl'))
+            print("✅ Vectorizer guardado")
 
-            # Guardar codificador de etiquetas
-            encoder_path = os.path.join(model_folder, 'encoder.pkl')
-            joblib.dump(self.label_encoder, encoder_path)
-            print(f"✅ Codificador guardado: {encoder_path}")
+            # Guardar encoder
+            joblib.dump(self.label_encoder, os.path.join(model_folder, 'encoder.pkl'))
+            print("✅ Encoder guardado")
 
-            # Obtener nombre amigable del algoritmo
-            algorithm_names = {
-                'RandomForestClassifier': 'Random Forest',
-                'LogisticRegression': 'Logistic Regression',
-                'SVC': 'Support Vector Machine (SVM)',
-                'MultinomialNB': 'Naive Bayes'
-            }
-
-            model_type_name = algorithm_names.get(
-                type(self.classifier).__name__,
-                type(self.classifier).__name__
-            )
-
-            # Guardar metadatos del modelo
+            # Guardar metadatos
             metadata = {
+                'model_type': type(self.classifier).__name__,
                 'model_name': model_name,
-                'model_type': model_type_name,
-                'professions': list(self.label_encoder.classes_),
-                'num_features': self.vectorizer.max_features,
-                'creation_date': pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S'),
-                'num_professions': len(self.label_encoder.classes_),
-                'model_format': 'sklearn_pkl'
+                'num_features': self.vectorizer.max_features if hasattr(self.vectorizer, 'max_features') else 0,
+                'num_classes': len(self.label_encoder.classes_),
+                'classes': list(self.label_encoder.classes_),
+                'saved_date': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'is_deep_learning': False
             }
+            joblib.dump(metadata, os.path.join(model_folder, 'metadata.pkl'))
+            print("✅ Metadatos guardados")
 
-            metadata_path = os.path.join(model_folder, 'metadata.pkl')
-            joblib.dump(metadata, metadata_path)
-            print(f"✅ Metadatos guardados: {metadata_path}")
-
-            print(f"✅ Modelo ML '{model_name}' guardado completamente en {model_folder}/")
-            print(f"   - vectorizer.pkl")
-            print(f"   - classifier.pkl")
-            print(f"   - encoder.pkl")
-            print(f"   - metadata.pkl")
-
+            print(f"\\n✅ Modelo '{model_name}' guardado exitosamente")
             return True
 
         except Exception as e:
-            print(f"❌ Error guardando modelo: {e}")
+            print(f"❌ Error guardando modelo: {str(e)}")
             import traceback
             print(f"Traceback: {traceback.format_exc()}")
             return False
-    
+
     def load_model(self, model_name='cv_classifier'):
-        """Carga un modelo previamente entrenado desde su carpeta específica"""
+        """Carga un modelo guardado"""
         try:
-            # Carpeta específica del modelo
+            print(f"\\n=== Cargando modelo '{model_name}' ===")
+            
+            # Verificar que existe el directorio del modelo
             model_folder = os.path.join(self.model_dir, model_name)
-
             if not os.path.exists(model_folder):
-                print(f"❌ No se encontró la carpeta del modelo: {model_folder}")
+                print(f"❌ No se encontró el directorio del modelo: {model_folder}")
                 return False
 
-            print(f"📁 Cargando modelo desde: {model_folder}")
-
-            # Cargar vectorizador
-            vectorizer_path = os.path.join(model_folder, 'vectorizer.pkl')
-            if not os.path.exists(vectorizer_path):
-                print(f"❌ No se encontró vectorizer.pkl en {model_folder}")
-                return False
-            self.vectorizer = joblib.load(vectorizer_path)
-            print(f"✅ Vectorizador cargado")
-
-            # Cargar clasificador
-            classifier_path = os.path.join(model_folder, 'classifier.pkl')
-            if not os.path.exists(classifier_path):
-                print(f"❌ No se encontró classifier.pkl en {model_folder}")
-                return False
-            self.classifier = joblib.load(classifier_path)
-            print(f"✅ Clasificador cargado")
-
-            # Cargar codificador de etiquetas
-            encoder_path = os.path.join(model_folder, 'encoder.pkl')
-            if not os.path.exists(encoder_path):
-                print(f"❌ No se encontró encoder.pkl en {model_folder}")
-                return False
-            self.label_encoder = joblib.load(encoder_path)
-            print(f"✅ Codificador cargado")
-
-            # Cargar metadatos si existen
+            # Cargar metadatos
             metadata_path = os.path.join(model_folder, 'metadata.pkl')
             if os.path.exists(metadata_path):
                 metadata = joblib.load(metadata_path)
-                print(f"✅ Metadatos cargados")
+                print("✅ Metadatos cargados")
                 print(f"   Tipo de modelo: {metadata.get('model_type', 'Unknown')}")
-                print(f"   Fecha de creación: {metadata.get('creation_date', 'Unknown')}")
+                print(f"   Profesiones: {len(metadata.get('classes', []))}")
+
+            # Cargar modelo
+            classifier_path = os.path.join(model_folder, 'classifier.pkl')
+            if not os.path.exists(classifier_path):
+                print(f"❌ No se encontró el clasificador: {classifier_path}")
+                return False
+            self.classifier = joblib.load(classifier_path)
+            print("✅ Clasificador cargado")
+
+            # Cargar vectorizer
+            vectorizer_path = os.path.join(model_folder, 'vectorizer.pkl')
+            if not os.path.exists(vectorizer_path):
+                print(f"❌ No se encontró el vectorizer: {vectorizer_path}")
+                return False
+            self.vectorizer = joblib.load(vectorizer_path)
+            print("✅ Vectorizer cargado")
+
+            # Cargar encoder
+            encoder_path = os.path.join(model_folder, 'encoder.pkl')
+            if not os.path.exists(encoder_path):
+                print(f"❌ No se encontró el encoder: {encoder_path}")
+                return False
+            self.label_encoder = joblib.load(encoder_path)
+            print("✅ Encoder cargado")
 
             self.is_trained = True
-
-            print(f"✅ Modelo '{model_name}' cargado exitosamente")
+            print(f"\\n✅ Modelo '{model_name}' cargado exitosamente")
             print(f"   Profesiones disponibles: {list(self.label_encoder.classes_)}")
-
             return True
 
         except Exception as e:
-            print(f"❌ Error cargando modelo: {e}")
+            print(f"❌ Error cargando modelo: {str(e)}")
             import traceback
             print(f"Traceback: {traceback.format_exc()}")
             return False
-    
+
     def get_model_info(self):
         """Retorna información sobre el modelo cargado"""
         if not self.is_trained:
@@ -382,74 +360,60 @@ class CVClassifier:
 
         # Modelos tradicionales (en carpetas)
         if os.path.exists(self.model_dir):
-            # Buscar carpetas de modelos
             for item in os.listdir(self.model_dir):
                 item_path = os.path.join(self.model_dir, item)
                 if os.path.isdir(item_path):
-                    model_name = item
                     try:
                         metadata_path = os.path.join(item_path, 'metadata.pkl')
-
                         if os.path.exists(metadata_path):
                             metadata = joblib.load(metadata_path)
-
-                            # Verificar que todos los archivos del modelo existen
-                            required_files = ['vectorizer.pkl', 'classifier.pkl', 'encoder.pkl']
-
-                            all_files_exist = all(
-                                os.path.exists(os.path.join(item_path, f))
-                                for f in required_files
-                            )
-
-                            if all_files_exist:
-                                models.append({
-                                    'name': model_name,
-                                    'display_name': metadata.get('model_name', model_name),
-                                    'model_type': metadata.get('model_type', 'Unknown'),
-                                    'professions': metadata.get('professions', []),
-                                    'num_professions': metadata.get('num_professions', 0),
-                                    'creation_date': metadata.get('creation_date', 'Unknown'),
-                                    'num_features': metadata.get('num_features', 0),
-                                    'is_deep_learning': False,
-                                    'model_format': metadata.get('model_format', 'sklearn_pkl')
-                                })
-
+                            
+                            # Si no hay clases en los metadatos, intentar cargarlas del encoder
+                            if not metadata.get('classes'):
+                                encoder_path = os.path.join(item_path, 'encoder.pkl')
+                                if os.path.exists(encoder_path):
+                                    encoder = joblib.load(encoder_path)
+                                    metadata['classes'] = list(encoder.classes_)
+                                    metadata['num_classes'] = len(encoder.classes_)
+                                    # Actualizar los metadatos con las clases
+                                    joblib.dump(metadata, metadata_path)
+                            
+                            models.append({
+                                'name': item,
+                                'display_name': metadata.get('model_name', item),
+                                'model_type': metadata.get('model_type', 'Unknown'),
+                                'professions': metadata.get('classes', []),
+                                'num_professions': metadata.get('num_classes', 0),
+                                'creation_date': metadata.get('saved_date', 'Unknown'),
+                                'num_features': metadata.get('num_features', 0),
+                                'is_deep_learning': False
+                            })
                     except Exception as e:
-                        print(f"Error leyendo metadatos de {model_name}: {e}")
+                        print(f"Error leyendo metadatos de {item}: {e}")
                         continue
 
-        # Modelos de Deep Learning (en carpetas)
-        deep_models_dir = "saved_deep_models"
+        # Modelos de Deep Learning
+        deep_models_dir = os.path.join(os.path.dirname(self.model_dir), 'saved_deep_models')
         if os.path.exists(deep_models_dir):
             for item in os.listdir(deep_models_dir):
                 item_path = os.path.join(deep_models_dir, item)
                 if os.path.isdir(item_path):
-                    model_name = item
                     try:
                         metadata_path = os.path.join(item_path, 'metadata.pkl')
-
                         if os.path.exists(metadata_path):
                             metadata = joblib.load(metadata_path)
-
-                            # Verificar que el modelo de Deep Learning existe (formato H5)
-                            model_path = os.path.join(item_path, 'model.h5')
-                            encoder_path = os.path.join(item_path, 'encoder.pkl')
-
-                            if os.path.exists(model_path) and os.path.exists(encoder_path):
-                                models.append({
-                                    'name': model_name,
-                                    'display_name': metadata.get('model_name', model_name),
-                                    'model_type': metadata.get('model_type', 'Deep Learning'),
-                                    'professions': metadata.get('professions', []),
-                                    'num_professions': metadata.get('num_professions', 0),
-                                    'creation_date': metadata.get('creation_date', 'Unknown'),
-                                    'num_features': metadata.get('max_length', 0),
-                                    'is_deep_learning': True,
-                                    'model_format': metadata.get('model_format', 'h5')
-                                })
-
+                            models.append({
+                                'name': item,
+                                'display_name': metadata.get('model_name', item),
+                                'model_type': metadata.get('model_type', 'Deep Learning'),
+                                'professions': metadata.get('classes', []),
+                                'num_professions': metadata.get('num_classes', 0),
+                                'creation_date': metadata.get('saved_date', 'Unknown'),
+                                'num_features': metadata.get('max_length', 0),
+                                'is_deep_learning': True
+                            })
                     except Exception as e:
-                        print(f"Error leyendo metadatos DL de {model_name}: {e}")
+                        print(f"Error leyendo metadatos DL de {item}: {e}")
                         continue
 
         return sorted(models, key=lambda x: x['creation_date'], reverse=True)

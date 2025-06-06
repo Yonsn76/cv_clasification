@@ -1,0 +1,81 @@
+# Carpetas de modelos
+saved_models/
+saved_deep_models/
+modelos_dl/
+bert_cache/
+cache/
+
+# Archivos de Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Entornos virtuales
+venv/
+ENV/
+env/
+.env/
+
+# IDEs y editores
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.vs/
+
+# Archivos de sistema
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Archivos de log
+*.log
+logs/
+log/
+
+# Archivos temporales
+*.tmp
+*.temp
+*.bak
+
+# Archivos de caché de Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Archivos específicos del proyecto
+*.h5
+*.pkl
+*.model
+*.bin
+*.json
+!package.json
+!package-lock.json
+!tsconfig.json
+
+# Archivos de audio generados
+assets/sounds/*.wav
+
+# Otros archivos binarios o grandes
+*.zip
+*.tar.gz
+*.rar
+*.7z 
