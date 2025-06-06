@@ -60,9 +60,10 @@
     <div class="message" id="message"></div>
 
     <script>
+        const API_BASE_URL = "http://localhost:5000";
         async function fetchModels() {
             try {
-                const response = await fetch('http://localhost:5001/api/models');
+                const response = await fetch(`${API_BASE_URL}/api/models`);
                 if (!response.ok) {
                     throw new Error('Error al obtener modelos');
                 }
@@ -96,7 +97,7 @@
 
         async function selectModel(name, isDeep) {
             try {
-                const response = await fetch('http://localhost:5001/api/models/select', {
+                const response = await fetch(`${API_BASE_URL}/api/models/select`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({model_name: name, is_deep: isDeep})

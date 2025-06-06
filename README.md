@@ -23,6 +23,8 @@ python main_gui.py
 ```
 
 También se incluyen scripts bajo `page/` para exponer una API web basada en Flask.
+La API utiliza por defecto el puerto `5000`, pero puede personalizarse estableciendo la
+variable de entorno `API_PORT` antes de ejecutarla.
 
 ## Estructura del proyecto
 
