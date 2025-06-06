@@ -1,12 +1,20 @@
 import sqlite3
 import os
 from datetime import datetime
+import logging
+from src.config import logging_config  # noqa: F401
+from src.config.settings import Settings
+
+logger = logging.getLogger(__name__)
 
 DATABASE_NAME = "postulantes.db"
-# Asumimos que la base de datos estará en el mismo directorio que este script,
-# o en un directorio de datos designado.
-# Por ahora, la crearemos en el directorio raíz del proyecto (d:/front).
-DATABASE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), DATABASE_NAME)
+# Ubicación de la base de datos. Puede sobreescribirse con la variable de entorno
+# ``DB_PATH``. Por defecto se crea en la carpeta raíz del proyecto definida en
+# ``Settings.BASE_DIR``.
+DATABASE_PATH = os.getenv(
+    "DB_PATH",
+    str(Settings.BASE_DIR / DATABASE_NAME)
+)
 
 def init_db():
     """Inicializa la base de datos y crea la tabla de aplicaciones si no existe."""
@@ -31,9 +39,9 @@ def init_db():
         # Por ahora, un correo único por postulación.
         
         conn.commit()
-        print(f"Base de datos inicializada correctamente en {DATABASE_PATH}")
+        logger.info("Base de datos inicializada correctamente en %s", DATABASE_PATH)
     except sqlite3.Error as e:
-        print(f"Error al inicializar la base de datos: {e}")
+        logger.error("Error al inicializar la base de datos: %s", e)
     finally:
         if conn:
             conn.close()
@@ -53,14 +61,14 @@ def add_application(nombre, telefono, correo, nombre_cv, tipo_cv, cv_base64):
         """, (nombre, telefono, correo, nombre_cv, tipo_cv, cv_base64, datetime.now()))
         
         conn.commit()
-        print(f"Aplicación de {nombre} ({correo}) guardada correctamente.")
+        logger.info("Aplicación de %s (%s) guardada correctamente", nombre, correo)
         return "Postulación enviada con éxito."
     except sqlite3.IntegrityError:
         # Esto ocurrirá si el correo ya existe, debido a la restricción UNIQUE
-        print(f"Error: El correo {correo} ya ha sido registrado.")
+        logger.warning("El correo %s ya ha sido registrado", correo)
         return f"Error: El correo electrónico '{correo}' ya ha sido registrado con una postulación."
     except sqlite3.Error as e:
-        print(f"Error al guardar la aplicación para {correo}: {e}")
+        logger.error("Error al guardar la aplicación para %s: %s", correo, e)
         return f"Error al procesar la postulación: {e}"
     finally:
         if conn:
@@ -75,7 +83,7 @@ def get_all_applications():
         applications = cursor.fetchall()
         return applications
     except sqlite3.Error as e:
-        print(f"Error al obtener aplicaciones: {e}")
+        logger.error("Error al obtener aplicaciones: %s", e)
         return []
     finally:
         if conn:
@@ -90,7 +98,7 @@ def get_application_cv_by_id(app_id):
         result = cursor.fetchone()
         return result # (nombre_cv, cv_base64, tipo_cv)
     except sqlite3.Error as e:
-        print(f"Error al obtener CV para aplicación ID {app_id}: {e}")
+        logger.error("Error al obtener CV para aplicación ID %s: %s", app_id, e)
         return None
     finally:
         if conn:
@@ -99,7 +107,7 @@ def get_application_cv_by_id(app_id):
 if __name__ == '__main__':
     # Esto se ejecutará si el script se corre directamente.
     # Útil para crear la base de datos por primera vez.
-    print(f"Intentando inicializar la base de datos en: {DATABASE_PATH}")
+    logger.info("Intentando inicializar la base de datos en %s", DATABASE_PATH)
     init_db()
     
     # Ejemplo de cómo añadir una aplicación (descomentar para probar)
