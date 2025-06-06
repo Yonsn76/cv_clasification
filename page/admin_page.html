@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Administración - Postulantes</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f8f9fa;
+            color: #212529;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+        }
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 15px;
+        }
+        header h1 {
+            color: #007bff;
+            margin: 0;
+            font-size: 2.2em;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #dee2e6;
+            padding: 12px;
+            text-align: left;
+            vertical-align: middle;
+        }
+        th {
+            background-color: #007bff;
+            color: white;
+            font-weight: bold;
+        }
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        tr:hover {
+            background-color: #e9ecef;
+        }
+        .actions a, .actions button {
+            display: inline-block;
+            padding: 6px 10px;
+            margin-right: 5px;
+            background-color: #28a745;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 0.9em;
+            border: none;
+            cursor: pointer;
+        }
+        .actions a:hover, .actions button:hover {
+            background-color: #218838;
+        }
+        .actions .delete-btn {
+            background-color: #dc3545;
+        }
+        .actions .delete-btn:hover {
+            background-color: #c82333;
+        }
+        .no-applicants {
+            text-align: center;
+            font-style: italic;
+            color: #6c757d;
+            padding: 20px;
+        }
+        .refresh-button {
+            display: block;
+            margin: 20px 0;
+            padding: 10px 15px;
+            background-color: #17a2b8;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+        }
+        .refresh-button:hover {
+            background-color: #138496;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Panel de Administración de Postulantes</h1>
+        </header>
+
+        <button class="refresh-button" onclick="loadApplicants()">Cargar/Actualizar Postulantes</button>
+
+        <!-- Sección para selección de modelo -->
+        <section style="margin-top: 20px; padding: 15px; border: 1px solid #007bff; border-radius: 8px; background-color: #e9f7fe;">
+            <h2>Selector de Modelo Activo</h2>
+            <div id="modelSelector">
+                <select id="modelSelect" style="width: 100%; padding: 8px; font-size: 1em;">
+                    <option value="">Cargando modelos...</option>
+                </select>
+                <button style="margin-top: 10px; padding: 8px 12px; font-size: 1em; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer;" onclick="selectModel()">
+                    Seleccionar Modelo
+                </button>
+                <p id="selectedModelInfo" style="margin-top: 10px; font-style: italic; color: #0056b3;"></p>
+            </div>
+        </section>
+        
+        <table id="applicantsTable" style="margin-top: 20px;">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Nombre Completo</th>
+                    <th>DNI</th>
+                    <th>Correo Electrónico</th>
+                    <th>Teléfono</th>
+                    <th>Nombre CV</th>
+                    <th>Fecha Postulación</th>
+                    <th>Puesto Clasificación</th>
+                    <th>Porcentaje Clasificación</th>
+                    <th>Modelo</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Las filas de datos se cargarán aquí por JavaScript o serán datos de ejemplo -->
+            </tbody>
+        </table>
+        <div id="noApplicantsMessage" class="no-applicants" style="display:none;">
+            No hay postulantes registrados por el momento.
+        </div>
+    </div>
+
+    <script>
+        // Estas funciones son placeholders.
+        // En una implementación real, interactuarían con un backend o QWebChannel.
+        async function loadApplicants() {
+            const noApplicantsMessage = document.getElementById('noApplicantsMessage');
+            const tbody = document.getElementById('applicantsTable').getElementsByTagName('tbody')[0];
+            tbody.innerHTML = ''; // Limpiar filas existentes
+            noApplicantsMessage.style.display = 'none';
+
+            try {
+                const response = await fetch('http://127.0.0.1:5000/api/postulaciones');
+                if (!response.ok) {
+                    throw new Error('Error al obtener datos de postulantes');
+                }
+                const applicants = await response.json();
+
+                if (applicants.length === 0) {
+                    noApplicantsMessage.style.display = 'block';
+                    return;
+                }
+
+                // Classify each applicant
+                const classifiedApplicants = [];
+                for (const app of applicants) {
+                    try {
+                        const classifyResponse = await fetch(`http://127.0.0.1:5000/api/postulaciones/classify/${app.id}`, { method: 'POST' });
+                        if (classifyResponse.ok) {
+                            const classificationResult = await classifyResponse.json();
+                            app.puesto_clasificacion = classificationResult.puesto;
+                            app.porcentaje_clasificacion = classificationResult.porcentaje;
+                        } else {
+                            // Handle cases where classification might fail for an individual CV
+                            app.puesto_clasificacion = 'Error';
+                            app.porcentaje_clasificacion = 0;
+                            console.warn(`Error clasificando postulante ${app.id}: ${classifyResponse.statusText}`);
+                        }
+                    } catch (classifyError) {
+                        app.puesto_clasificacion = 'Error';
+                        app.porcentaje_clasificacion = 0;
+                        console.error(`Error en la llamada de clasificación para ${app.id}:`, classifyError);
+                    }
+                    classifiedApplicants.push(app);
+                }
+
+                // Sort by percentage descending
+                classifiedApplicants.sort((a, b) => (b.porcentaje_clasificacion || 0) - (a.porcentaje_clasificacion || 0));
+
+                classifiedApplicants.forEach(app => {
+                    let row = tbody.insertRow();
+                    row.insertCell().textContent = app.id;
+                    row.insertCell().textContent = app.nombre;
+                    row.insertCell().textContent = app.dni || '';
+                    row.insertCell().textContent = app.correo;
+                    row.insertCell().textContent = app.telefono;
+                    row.insertCell().textContent = app.cv_filename;
+                    row.insertCell().textContent = app.fecha_postulacion;
+                    row.insertCell().textContent = app.puesto_clasificacion || '';
+                    row.insertCell().textContent = app.porcentaje_clasificacion ? (app.porcentaje_clasificacion * 100).toFixed(0) + '%' : '';
+                    row.insertCell().textContent = app.modelo_clasificacion || '';
+
+                    let actionsCell = row.insertCell();
+                    actionsCell.className = 'actions';
+                    actionsCell.innerHTML = `
+                        <button onclick="viewCv(${app.id})">Ver CV</button>
+                        <button class="delete-btn" onclick="deleteApplicant(${app.id})">Eliminar</button>
+                    `;
+                });
+            } catch (error) {
+                alert('Error al cargar postulantes: ' + error.message);
+            }
+        }
+
+        async function loadModels() {
+            const modelSelect = document.getElementById('modelSelect');
+            const selectedModelInfo = document.getElementById('selectedModelInfo');
+            modelSelect.disabled = true;
+            modelSelect.innerHTML = '<option value="">Cargando modelos...</option>';
+            selectedModelInfo.textContent = '';
+
+            try {
+                const response = await fetch('http://127.0.0.1:5000/api/models');
+                if (!response.ok) {
+                    throw new Error('Error al obtener modelos');
+                }
+                const models = await response.json();
+
+                if (models.length === 0) {
+                    modelSelect.innerHTML = '<option value="">No hay modelos disponibles</option>';
+                    return;
+                }
+
+                modelSelect.innerHTML = '';
+                models.forEach(model => {
+                    const option = document.createElement('option');
+                    option.value = model.name;
+                    option.textContent = model.display_name + (model.is_deep_learning ? ' (DL)' : ' (ML)');
+                    option.dataset.isDeep = model.is_deep_learning;
+                    modelSelect.appendChild(option);
+                });
+
+                // Cargar modelo activo actual
+                const activeResponse = await fetch('http://127.0.0.1:5000/api/models/active');
+                if (activeResponse.ok) {
+                    const activeModel = await activeResponse.json();
+                    if (activeModel && activeModel.name) {
+                        modelSelect.value = activeModel.name;
+                        selectedModelInfo.textContent = 'Modelo activo: ' + activeModel.display_name;
+                    }
+                }
+
+                modelSelect.disabled = false;
+            } catch (error) {
+                alert('Error al cargar modelos: ' + error.message);
+            }
+        }
+
+        async function selectModel() {
+            const modelSelect = document.getElementById('modelSelect');
+            const selectedModelInfo = document.getElementById('selectedModelInfo');
+            const selectedOption = modelSelect.options[modelSelect.selectedIndex];
+            if (!selectedOption || !selectedOption.value) {
+                alert('Por favor, selecciona un modelo.');
+                return;
+            }
+
+            const modelName = selectedOption.value;
+            const isDeep = selectedOption.dataset.isDeep === 'true';
+
+            try {
+                const response = await fetch('http://127.0.0.1:5000/api/models/select', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ model_name: modelName, is_deep: isDeep })
+                });
+                if (!response.ok) {
+                    throw new Error('Error al seleccionar modelo');
+                }
+                const result = await response.json();
+                selectedModelInfo.textContent = 'Modelo activo: ' + modelName;
+                alert(result.message);
+                // Recargar y reclasificar postulantes al cambiar modelo
+                loadApplicants();
+            } catch (error) {
+                alert('Error al seleccionar modelo: ' + error.message);
+            }
+        }
+
+        function viewCv(applicantId) {
+            // Abrir el CV en una nueva pestaña/ventana para descarga
+            window.open(`http://127.0.0.1:5000/api/postulaciones/cv/${applicantId}`, '_blank');
+        }
+
+        async function deleteApplicant(applicantId) {
+            if (confirm("¿Estás seguro de que deseas eliminar al postulante con ID: " + applicantId + "?")) {
+                try {
+                const response = await fetch(`http://127.0.0.1:5000/api/postulaciones/delete/${applicantId}`, {
+                        method: 'DELETE'
+                    });
+                    const result = await response.json();
+                    if (response.ok && result.success) {
+                        alert(result.message || 'Postulante eliminado correctamente.');
+                        loadApplicants(); // Recargar la lista de postulantes
+                    } else {
+                        alert('Error al eliminar postulante: ' + (result.message || 'Error desconocido'));
+                    }
+                } catch (error) {
+                    alert('Error de conexión al intentar eliminar postulante: ' + error.message);
+                }
+            }
+        }
+
+        // Cargar datos al inicio
+        loadApplicants();
+        loadModels();
+    </script>
+</body>
+</html>

@@ -423,14 +423,16 @@ class MainWindow(QMainWindow):
         # Crear acciones para la barra de herramientas
         action_docs = QAction(get_icon("pc"), "Documentación", self)
         action_docs.triggered.connect(self.open_documentation)
-        action_windows = QAction(get_icon("windows"), "Windows", self)
-        action_joystick = QAction(get_icon("joystick"), "Juegos", self)
+        action_admin = QAction(get_icon("windows"), "Panel Admin", self)
+        action_admin.triggered.connect(self.open_admin_panel)
+        action_postulacion = QAction(get_icon("joystick"), "Postulación", self)
+        action_postulacion.triggered.connect(self.open_postulacion)
         action_dots = QAction(get_icon("dots"), "Más", self)
 
         # Agregar acciones a la barra de herramientas
         self.right_toolbar.addAction(action_docs)
-        self.right_toolbar.addAction(action_windows)
-        self.right_toolbar.addAction(action_joystick)
+        self.right_toolbar.addAction(action_admin)
+        self.right_toolbar.addAction(action_postulacion)
         self.right_toolbar.addAction(action_dots)
         
         self.apply_stylesheet()
@@ -598,6 +600,8 @@ class MainWindow(QMainWindow):
         # Actualizar colores de la vista de inicio si existen los widgets
         if hasattr(self, 'titulo_inicio_label'):
             self.titulo_inicio_label.setStyleSheet(f"color: {self.color_text_light}; font-size: 20pt; font-weight: bold;")
+        if hasattr(self, 'descripcion_inicio_label'):
+            self.descripcion_inicio_label.setStyleSheet(f"color: {self.color_text_medium}; font-size: 11pt; margin-bottom: 25px;")
         if hasattr(self, 'info_total_label'):
             self.info_total_label.setStyleSheet(f"color: {self.color_text_medium}; font-size: 12pt;")
         if hasattr(self, 'info_ml_label'):
@@ -625,6 +629,20 @@ class MainWindow(QMainWindow):
         self.titulo_inicio_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.titulo_inicio_label.setStyleSheet(f"color: {self.color_text_light}; font-size: 20pt; font-weight: bold; margin-bottom: 20px;")
         self.inicio_page_layout.addWidget(self.titulo_inicio_label)
+
+        # Descripción del sistema
+        self.descripcion_inicio_label = QLabel(
+            "Este es tu centro de control para la inteligencia artificial aplicada a la selección de personal. "
+            "Aquí podrás entrenar modelos de Machine Learning y Deep Learning de última generación, "
+            "diseñados específicamente para analizar, clasificar y rankear currículums vitae de forma automática. "
+            "Optimiza tu proceso de reclutamiento, identifica a los mejores candidatos y toma decisiones basadas en datos con ClasificaTalento PRO."
+        )
+        self.descripcion_inicio_label.setObjectName("InicioDescripcionLabel")
+        self.descripcion_inicio_label.setWordWrap(True)
+        self.descripcion_inicio_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.descripcion_inicio_label.setStyleSheet(f"color: {self.color_text_medium}; font-size: 11pt; margin-bottom: 25px;")
+        self.inicio_page_layout.addWidget(self.descripcion_inicio_label)
+
 
         # Contenedor para estadísticas
         stats_frame = QFrame()
@@ -1061,6 +1079,36 @@ class MainWindow(QMainWindow):
                 QMessageBox.warning(self, "Error", "No se encuentra el archivo de documentación.")
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Error al abrir la documentación: {str(e)}")
+
+    def open_admin_panel(self):
+        """Abre el panel de administración en una ventana dentro de la aplicación"""
+        try:
+            admin_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "page", "admin_page.html")
+            if os.path.exists(admin_path):
+                # Crear y mostrar la ventana de administración
+                admin_window = DocumentationWindow(self)
+                admin_window.setWindowTitle("Panel de Administración - Postulantes")
+                admin_window.load_documentation(admin_path)
+                admin_window.show()
+            else:
+                QMessageBox.warning(self, "Error", "No se encuentra el archivo del panel de administración.")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Error al abrir el panel de administración: {str(e)}")
+
+    def open_postulacion(self):
+        """Abre el formulario de postulación en una ventana dentro de la aplicación"""
+        try:
+            postulacion_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "page", "postulacion.html")
+            if os.path.exists(postulacion_path):
+                # Crear y mostrar la ventana de postulación
+                postulacion_window = DocumentationWindow(self)
+                postulacion_window.setWindowTitle("Formulario de Postulación")
+                postulacion_window.load_documentation(postulacion_path)
+                postulacion_window.show()
+            else:
+                QMessageBox.warning(self, "Error", "No se encuentra el archivo del formulario de postulación.")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Error al abrir el formulario de postulación: {str(e)}")
 
 
 if __name__ == '__main__':

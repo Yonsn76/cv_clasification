@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Formulario de Postulación</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f8f9fa;
+            color: #212529;
+        }
+        .container {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 30px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+        }
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 15px;
+        }
+        header h1 {
+            color: #007bff;
+            margin: 0;
+            font-size: 2.2em;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #495057;
+        }
+        input[type="text"],
+        input[type="email"],
+        input[type="tel"],
+        textarea,
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        input[type="file"] {
+            display: none;
+        }
+        .file-upload {
+            display: inline-block;
+            padding: 12px 20px;
+            background-color: #28a745;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .file-upload:hover {
+            background-color: #218838;
+        }
+        .file-name {
+            margin-top: 8px;
+            font-size: 0.9em;
+            color: #6c757d;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .success-message {
+            display: none;
+            background-color: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 20px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Formulario de Postulación</h1>
+        </header>
+
+        <form id="postulacionForm" action="http://localhost:5000/api/postulaciones" method="POST" enctype="multipart/form-data">
+            <div class="form-group">
+                <label for="nombre">Nombre Completo:</label>
+                <input type="text" id="nombre" name="nombre" required>
+            </div>
+
+            <div class="form-group">
+                <label for="dni">DNI:</label>
+                <input type="text" id="dni" name="dni" required>
+            </div>
+
+            <div class="form-group">
+                <label for="correo">Correo Electrónico:</label>
+                <input type="email" id="correo" name="correo" required>
+            </div>
+
+            <div class="form-group">
+                <label for="telefono">Teléfono:</label>
+                <input type="tel" id="telefono" name="telefono" required>
+            </div>
+
+            <div class="form-group">
+                <label for="cv">Curriculum Vitae (PDF):</label>
+                <label for="cv" class="file-upload">Seleccionar Archivo</label>
+                <input type="file" id="cv" name="cv" accept=".pdf" required>
+                <div class="file-name" id="fileName"></div>
+            </div>
+
+            <button type="submit">Enviar Postulación</button>
+        </form>
+
+        <div class="success-message" id="successMessage">
+            ¡Tu postulación ha sido enviada con éxito!
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('cv').addEventListener('change', function(e) {
+            const fileName = e.target.files[0]?.name || 'Ningún archivo seleccionado';
+            document.getElementById('fileName').textContent = fileName;
+        });
+
+        document.getElementById('postulacionForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const formData = new FormData(this);
+
+            try {
+                const response = await fetch('http://localhost:5000/api/postulaciones', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    document.getElementById('successMessage').style.display = 'block';
+                    this.reset();
+                    document.getElementById('fileName').textContent = '';
+                } else {
+                    const error = await response.json();
+                    alert('Error al enviar la postulación: ' + (error.message || 'Error desconocido'));
+                }
+            } catch (error) {
+                alert('Error de conexión: ' + error.message);
+            }
+        });
+    </script>
+</body>
+</html>

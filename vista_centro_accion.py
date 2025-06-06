@@ -54,14 +54,14 @@ class ModelStatusCard(QFrame):
         super().__init__(parent)
         self.setObjectName("ModelStatusCard")
         self.setFrameStyle(QFrame.Shape.StyledPanel | QFrame.Shadow.Raised)
-        self.setFixedHeight(120)
+        self.setMinimumHeight(150)
         self.setup_ui()
         self.set_no_model()
 
     def setup_ui(self):
         layout = QVBoxLayout(self)
-        layout.setSpacing(8)
-        layout.setContentsMargins(15,15,15,15)
+        layout.setSpacing(10)
+        layout.setContentsMargins(20,20,20,20)
 
         self.title_label = QLabel("🤖 Estado del Modelo")
         title_font = QFont()
@@ -74,7 +74,7 @@ class ModelStatusCard(QFrame):
         self.status_label = QLabel("❌ Sin modelo cargado")
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         status_font = QFont()
-        status_font.setPointSize(11)
+        status_font.setPointSize(12)
         self.status_label.setFont(status_font)
         layout.addWidget(self.status_label)
 
@@ -85,6 +85,8 @@ class ModelStatusCard(QFrame):
         info_font.setPointSize(10)
         self.info_label.setFont(info_font)
         layout.addWidget(self.info_label)
+
+        layout.addStretch(1)
 
     def _update_style(self):
         self.style().unpolish(self)
