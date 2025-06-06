@@ -5,6 +5,7 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
 from PyQt6.QtCore import Qt, pyqtSignal, QSize
 from PyQt6.QtGui import QFont, QPixmap, QColor
 import os
+from src.config.settings import Settings
 from entrenamiento_vistas.vista_ml_entrenamiento import VistaMLEntrenamiento
 from entrenamiento_vistas.vista_dl_entrenamiento import VistaDLEntrenamiento
 
@@ -24,7 +25,7 @@ class ModelImageIndicator(QLabel):
         self.load_image()
 
     def load_image(self):
-        base_path = os.path.dirname(os.path.abspath(__file__))
+        base_path = Settings.BASE_DIR
         icons_dir = os.path.join(base_path, "icons_png")
 
         if self.indicator_type == "ml":
