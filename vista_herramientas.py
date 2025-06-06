@@ -2,9 +2,9 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QPushButton, QFrame, QScrollArea, QGridLayout,
                              QMessageBox, QMenu, QFileDialog, QDialog,
-                             QTextEdit, QInputDialog)
+                             QTextEdit, QInputDialog, QSizePolicy)
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QFont, QCursor
+from PyQt6.QtGui import QFont, QCursor, QColor
 import os
 import zipfile
 import json
@@ -26,6 +26,27 @@ class ModelInfoDialog(QDialog):
         self.setObjectName("ModelInfoDialog")
         self.setFixedSize(500, 600)
         self.setModal(True)
+
+        # Obtener colores del tema principal si está disponible
+        main_window = self.window()
+        if hasattr(main_window, 'color_accent_red'):
+            self.accent_red = main_window.color_accent_red
+            self.accent_blue = main_window.color_accent_blue
+            self.text_light = main_window.color_text_light
+            self.text_medium = main_window.color_text_medium
+            self.groupbox_border = main_window.color_groupbox_border
+            self.dialog_bg_start = main_window.color_dialog_bg_start
+            self.dialog_bg_end = main_window.color_dialog_bg_end
+        else:
+            # Colores por defecto si no hay ventana principal
+            self.accent_red = "#E74C3C"
+            self.accent_blue = "#3498DB"
+            self.text_light = "#E0E0E0"
+            self.text_medium = "#BDC3C7"
+            self.groupbox_border = "#4A5568"
+            self.dialog_bg_start = "#2C3E50"
+            self.dialog_bg_end = "#34495E"
+
         self.setup_ui()
 
     def setup_ui(self):
@@ -42,7 +63,7 @@ class ModelInfoDialog(QDialog):
         # Icono grande
         is_dl = self.model_data.get('is_deep_learning', False)
         icon_text = "🧠" if is_dl else "🤖"
-        icon_color = "#E74C3C" if is_dl else "#3498DB"
+        icon_color = self.accent_red if is_dl else self.accent_blue
 
         icon_label = QLabel(icon_text)
         icon_label.setStyleSheet(f"font-size: 48px; color: {icon_color}; padding: 10px;")
@@ -51,10 +72,10 @@ class ModelInfoDialog(QDialog):
         info_layout = QVBoxLayout()
 
         name_label = QLabel(self.model_data.get('display_name', 'Modelo Sin Nombre'))
-        name_label.setStyleSheet("font-size: 18px; font-weight: bold;")
+        name_label.setStyleSheet(f"font-size: 18px; font-weight: bold; color: {self.text_light};")
 
         type_label = QLabel(f"Tipo: {self.model_data.get('model_type', 'Desconocido')}")
-        type_label.setStyleSheet("font-size: 14px;")
+        type_label.setStyleSheet(f"font-size: 14px; color: {self.text_medium};")
 
         info_layout.addWidget(name_label)
         info_layout.addWidget(type_label)
@@ -70,7 +91,7 @@ class ModelInfoDialog(QDialog):
         details_layout = QVBoxLayout(details_frame)
 
         details_title = QLabel("📊 Detalles del Modelo")
-        details_title.setStyleSheet("font-size: 16px; font-weight: bold; margin-bottom: 10px;")
+        details_title.setStyleSheet(f"font-size: 16px; font-weight: bold; color: {self.text_light}; margin-bottom: 10px;")
         details_layout.addWidget(details_title)
 
         # Información detallada
@@ -84,8 +105,9 @@ class ModelInfoDialog(QDialog):
         for label, value in details_info:
             detail_layout = QHBoxLayout()
             detail_label = QLabel(label)
-            detail_label.setStyleSheet("font-weight: bold;")
+            detail_label.setStyleSheet(f"font-weight: bold; color: {self.text_light};")
             detail_value = QLabel(str(value))
+            detail_value.setStyleSheet(f"color: {self.text_medium};")
 
             detail_layout.addWidget(detail_label)
             detail_layout.addStretch()
@@ -101,13 +123,21 @@ class ModelInfoDialog(QDialog):
             professions_layout = QVBoxLayout(professions_frame)
 
             prof_title = QLabel("👥 Profesiones Disponibles")
-            prof_title.setStyleSheet("font-size: 16px; font-weight: bold; margin-bottom: 10px;")
+            prof_title.setStyleSheet(f"font-size: 16px; font-weight: bold; color: {self.text_light}; margin-bottom: 10px;")
             professions_layout.addWidget(prof_title)
 
             # Mostrar profesiones en texto scrolleable
             prof_text = QTextEdit()
             prof_text.setMaximumHeight(120)
             prof_text.setReadOnly(True)
+            prof_text.setStyleSheet(f"""
+                QTextEdit {{
+                    background-color: transparent;
+                    color: {self.text_medium};
+                    border: 1px solid {self.groupbox_border};
+                    border-radius: 5px;
+                }}
+            """)
             
             professions_text = "\n".join([f"• {prof}" for prof in self.model_data['professions']])
             prof_text.setPlainText(professions_text)
@@ -120,12 +150,48 @@ class ModelInfoDialog(QDialog):
 
         close_btn = QPushButton("Cerrar")
         close_btn.clicked.connect(self.accept)
+        close_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {self.text_medium};
+                color: white;
+                border: none;
+                border-radius: 6px;
+                padding: 8px 16px;
+            }}
+            QPushButton:hover {{
+                background-color: {self.text_light};
+            }}
+        """)
 
         load_btn = QPushButton("Cargar Modelo")
         load_btn.clicked.connect(self.load_model)
+        load_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {self.accent_blue};
+                color: white;
+                border: none;
+                border-radius: 6px;
+                padding: 8px 16px;
+            }}
+            QPushButton:hover {{
+                background-color: {QColor(self.accent_blue).lighter(115).name()};
+            }}
+        """)
 
         export_btn = QPushButton("Exportar")
         export_btn.clicked.connect(self.export_model)
+        export_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {self.accent_red};
+                color: white;
+                border: none;
+                border-radius: 6px;
+                padding: 8px 16px;
+            }}
+            QPushButton:hover {{
+                background-color: {QColor(self.accent_red).lighter(115).name()};
+            }}
+        """)
 
         buttons_layout.addWidget(close_btn)
         buttons_layout.addStretch()
@@ -133,6 +199,23 @@ class ModelInfoDialog(QDialog):
         buttons_layout.addWidget(export_btn)
 
         layout.addLayout(buttons_layout)
+
+        # Aplicar estilo al diálogo
+        self.setStyleSheet(f"""
+            QDialog#ModelInfoDialog {{
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 {self.dialog_bg_start},
+                    stop:1 {self.dialog_bg_end}
+                );
+                border-radius: 10px;
+            }}
+            QFrame#InfoCard {{
+                background-color: {QColor(self.dialog_bg_end).lighter(105).name() if QColor(self.dialog_bg_end).lightnessF() < 0.5 else QColor(self.dialog_bg_end).darker(105).name()};
+                border: 1px solid {self.groupbox_border};
+                border-radius: 8px;
+                padding: 15px;
+            }}
+        """)
 
     def load_model(self):
         """Carga el modelo desde la ventana de información"""
@@ -156,33 +239,46 @@ class ModelCard(QFrame):
     def __init__(self, model_data, parent=None):
         super().__init__(parent)
         self.model_data = model_data
-        self.setObjectName("ModelCard")
-        self.setFixedSize(280, 200)
+        self.setObjectName("TrainingOptionCard")  # Usar el mismo objectName que TrainingOptionCard
+        self.setFixedSize(280, 200)  # Mantener el tamaño original
         self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+
+        # Obtener colores del tema principal si está disponible
+        main_window = self.window()
+        if hasattr(main_window, 'color_accent_red'):
+            self.accent_red = main_window.color_accent_red
+            self.accent_blue = main_window.color_accent_blue
+            self.text_light = main_window.color_text_light
+            self.text_medium = main_window.color_text_medium
+        else:
+            self.accent_red = "#E74C3C"
+            self.accent_blue = "#3498DB"
+            self.text_light = "#E0E0E0"
+            self.text_medium = "#BDC3C7"
+
         self.setup_ui()
 
     def setup_ui(self):
         """Configura la interfaz de la tarjeta"""
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(15)
+        layout.setContentsMargins(20, 20, 20, 20)  # Mantener márgenes originales
+        layout.setSpacing(15)  # Mantener espaciado original
 
         # Contenedor de icono para centrarlo bien
         icon_container = QFrame()
-        icon_container.setFixedHeight(80)
-        # Hacemos el contenedor transparente para que no interfiera con el fondo de la tarjeta
-        icon_container.setStyleSheet("background-color: transparent; border: none;") 
+        icon_container.setFixedHeight(80)  # Mantener altura original
+        icon_container.setStyleSheet("background-color: transparent; border: none;")
         icon_layout = QVBoxLayout(icon_container)
         icon_layout.setContentsMargins(0, 0, 0, 0)
 
         # Determinar icono según tipo de modelo
-        model_type = self.model_data.get('model_type', 'Unknown')
         is_dl = self.model_data.get('is_deep_learning', False)
         icon_text = "🧠" if is_dl else "🤖"
+        icon_color = self.accent_red if is_dl else self.accent_blue
         
         self.icon_label = QLabel(icon_text)
         self.icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.icon_label.setStyleSheet("font-size: 48px;") # Tamaño grande para el emoji
+        self.icon_label.setStyleSheet(f"font-size: 48px; color: {icon_color};")  # Mantener tamaño original
 
         icon_layout.addWidget(self.icon_label)
         layout.addWidget(icon_container)
@@ -191,18 +287,18 @@ class ModelCard(QFrame):
         self.name_label = QLabel(self.model_data.get('display_name', 'Modelo Sin Nombre'))
         self.name_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.name_label.setWordWrap(True)
-        self.name_label.setStyleSheet("font-size: 14px; font-weight: bold;")
+        self.name_label.setStyleSheet(f"font-size: 14px; font-weight: bold; color: {self.text_light};")
         layout.addWidget(self.name_label)
 
         # Información adicional
-        info_text = f"{model_type}"
+        info_text = f"{self.model_data.get('model_type', 'Desconocido')}"
         if 'num_professions' in self.model_data:
             info_text += f" • {self.model_data['num_professions']} profesiones"
 
         self.info_label = QLabel(info_text)
         self.info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.info_label.setWordWrap(True)
-        self.info_label.setStyleSheet("font-size: 11px;")
+        self.info_label.setStyleSheet(f"font-size: 11px; color: {self.text_medium};")
         layout.addWidget(self.info_label)
 
         layout.addStretch()
@@ -225,6 +321,145 @@ class VistaHerramientas(QWidget):
 
         self.setup_ui()
         self.load_models()
+
+        # Aceptar drops para importación de modelos
+        self.setAcceptDrops(True)
+
+    def dragEnterEvent(self, event):
+        """Maneja el inicio del drag de archivos"""
+        if event.mimeData().hasUrls():
+            for url in event.mimeData().urls():
+                file_path = url.toLocalFile()
+                valid_extensions = ['.zip', '.senati', '.mlmodel', '.aimodel', '.ctpro']
+                if any(file_path.lower().endswith(ext) for ext in valid_extensions):
+                    event.acceptProposedAction()
+                    return
+        event.ignore()
+
+    def dragMoveEvent(self, event):
+        """Permite el movimiento del drag sobre el widget"""
+        if event.mimeData().hasUrls():
+            for url in event.mimeData().urls():
+                file_path = url.toLocalFile()
+                valid_extensions = ['.zip', '.senati', '.mlmodel', '.aimodel', '.ctpro']
+                if any(file_path.lower().endswith(ext) for ext in valid_extensions):
+                    event.acceptProposedAction()
+                    return
+        event.ignore()
+
+    def dropEvent(self, event):
+        """Maneja el drop de archivos"""
+        for url in event.mimeData().urls():
+            file_path = url.toLocalFile()
+            valid_extensions = ['.zip', '.senati', '.mlmodel', '.aimodel', '.ctpro']
+            if any(file_path.lower().endswith(ext) for ext in valid_extensions):
+                self.import_model(file_path)
+                event.acceptProposedAction()
+
+    def decrypt_data(self, data):
+        """Desencripta los datos usando un método simple (para demostración)"""
+        from itertools import cycle
+        key = b'ClasificaTalentoPRO'  # Debe ser la misma clave que en ExportWorker
+        return bytes(a ^ b for a, b in zip(data, cycle(key)))
+
+    def import_model(self, file_path=None):
+        """Importa un modelo desde archivo"""
+        if not file_path:
+            formats = "Archivos de Modelo (*.zip *.senati *.mlmodel *.aimodel *.ctpro);;Todos los archivos (*)"
+            file_path, _ = QFileDialog.getOpenFileName(
+                self, 
+                "Importar Modelo", 
+                "", 
+                formats
+            )
+
+        if not file_path:
+            return
+
+        try:
+            if not zipfile.is_zipfile(file_path):
+                show_error("Error de Formato", "El archivo no es un formato de modelo válido", parent=self)
+                return
+
+            with zipfile.ZipFile(file_path, 'r') as zipf:
+                # Verificar metadatos
+                metadata_file = 'package_info.json' if 'package_info.json' in zipf.namelist() else 'senati_info.json'
+                if metadata_file not in zipf.namelist():
+                    show_error("Error de Formato", "El archivo no contiene metadatos válidos", parent=self)
+                    return
+
+                # Leer información del modelo
+                package_info = json.loads(zipf.read(metadata_file).decode('utf-8'))
+                model_type = package_info.get('model_type', 'unknown')
+                original_name = package_info.get('model_name', 'imported_model')
+                format_version = package_info.get('format_version', '1.0')
+                
+                # Obtener información de protección si existe
+                protection_info = package_info.get('protection', {
+                    'enabled': False,
+                    'level': 'none',
+                    'format': '.zip'
+                })
+
+                new_name, ok = QInputDialog.getText(
+                    self, 
+                    "Nombre del Modelo", 
+                    f"Nombre para el modelo importado:\n(Original: {original_name})", 
+                    text=original_name
+                )
+                if not ok or not new_name.strip():
+                    return
+
+                final_model_name = new_name.strip()
+                target_dir = os.path.join('saved_deep_models' if model_type == 'dl' else 'saved_models', final_model_name)
+                
+                if model_type not in ['ml', 'dl']:
+                    show_error("Error de Tipo", f"Tipo de modelo desconocido: {model_type}", parent=self)
+                    return
+
+                if os.path.exists(target_dir):
+                    reply = QMessageBox.question(
+                        self, 
+                        "Modelo Existente", 
+                        f"Ya existe un modelo con el nombre '{final_model_name}'.\n¿Deseas sobrescribirlo?",
+                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                        QMessageBox.StandardButton.No
+                    )
+                    if reply == QMessageBox.StandardButton.No:
+                        return
+                    shutil.rmtree(target_dir)
+
+                os.makedirs(target_dir, exist_ok=True)
+
+                # Procesar cada archivo
+                for file_info in zipf.filelist:
+                    if file_info.filename not in ['package_info.json', 'senati_info.json']:
+                        # Leer el contenido del archivo
+                        file_data = zipf.read(file_info.filename)
+                        
+                        # Desencriptar si es necesario
+                        if protection_info['enabled']:
+                            try:
+                                file_data = self.decrypt_data(file_data)
+                            except Exception as e:
+                                show_error("Error de Desencriptación", f"Error al desencriptar {file_info.filename}: {str(e)}", parent=self)
+                                return
+
+                        # Escribir el archivo
+                        target_path = os.path.join(target_dir, file_info.filename)
+                        os.makedirs(os.path.dirname(target_path), exist_ok=True)
+                        with open(target_path, 'wb') as f:
+                            f.write(file_data)
+
+                show_success(
+                    "Modelo Importado", 
+                    f"El modelo '{final_model_name}' se ha importado correctamente.\nTipo: {model_type.upper()}, Versión: {format_version}", 
+                    parent=self
+                )
+                self.load_models()
+
+        except Exception as e:
+            show_error("Error de Importación", f"Error importando modelo: {str(e)}", parent=self)
 
     def setup_ui(self):
         """Configura la interfaz principal"""
@@ -477,53 +712,3 @@ class VistaHerramientas(QWidget):
 
         except Exception as e:
             show_error("Error al Eliminar", f"Error eliminando '{display_name}': {str(e)}", parent=self)
-
-    def import_model(self):
-        """Importa un modelo desde archivo .senati"""
-        file_path, _ = QFileDialog.getOpenFileName(
-            self, "Importar Modelo .senati", "", "Archivos SENATI (*.senati)"
-        )
-
-        if not file_path:
-            return
-
-        try:
-            if not zipfile.is_zipfile(file_path):
-                show_error("Error de Formato", "El archivo no es un formato .senati válido", parent=self)
-                return
-
-            with zipfile.ZipFile(file_path, 'r') as zipf:
-                if 'senati_info.json' not in zipf.namelist():
-                    show_error("Error de Formato", "El archivo no contiene metadatos .senati válidos", parent=self)
-                    return
-
-                senati_info = json.loads(zipf.read('senati_info.json').decode('utf-8'))
-                model_type = senati_info.get('model_type', 'unknown')
-                original_name = senati_info.get('model_name', 'imported_model')
-
-                new_name, ok = QInputDialog.getText(self, "Nombre del Modelo", f"Nombre para el modelo importado:\n(Original: {original_name})", text=original_name)
-                if not ok or not new_name.strip():
-                    return
-
-                final_model_name = new_name.strip()
-                target_dir = os.path.join('saved_deep_models' if model_type == 'dl' else 'saved_models', final_model_name)
-                
-                if model_type not in ['ml', 'dl']:
-                    show_error("Error de Tipo", f"Tipo de modelo desconocido: {model_type}", parent=self)
-                    return
-
-                if os.path.exists(target_dir):
-                    reply = QMessageBox.question(self, "Modelo Existente", f"Ya existe un modelo con el nombre '{final_model_name}'.\n¿Deseas sobrescribirlo?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
-                    if reply == QMessageBox.StandardButton.No:
-                        return
-                    shutil.rmtree(target_dir)
-
-                os.makedirs(target_dir, exist_ok=True)
-                for file_info in zipf.filelist:
-                    if file_info.filename != 'senati_info.json':
-                        zipf.extract(file_info, target_dir)
-
-                show_success("Modelo Importado", f"El modelo '{final_model_name}' se ha importado correctamente.", parent=self)
-                self.load_models()
-        except Exception as e:
-            show_error("Error de Importación", f"Error importando modelo: {str(e)}", parent=self)

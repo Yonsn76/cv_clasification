@@ -21,11 +21,22 @@ class ExportWorker(QThread):
     export_completed = pyqtSignal(str)
     export_failed = pyqtSignal(str)
 
-    def __init__(self, model_name, export_path, model_type):
+    def __init__(self, model_name, export_path, model_type, protection_info=None):
         super().__init__()
         self.model_name = model_name
         self.export_path = export_path
         self.model_type = model_type  # 'ml' o 'dl'
+        self.protection_info = protection_info or {
+            'encrypted': True,
+            'format': '.zip',
+            'protection_level': 'high'
+        }
+
+    def encrypt_data(self, data):
+        """Encripta los datos usando un método simple (para demostración)"""
+        from itertools import cycle
+        key = b'ClasificaTalentoPRO'  # Clave de ejemplo
+        return bytes(a ^ b for a, b in zip(data, cycle(key)))
 
     def run(self):
         """Ejecuta la exportación del modelo"""
@@ -42,17 +53,22 @@ class ExportWorker(QThread):
                 self.export_failed.emit(f"No se encontró el modelo: {source_dir}")
                 return
 
-            self.progress_updated.emit("Comprimiendo archivos del modelo...")
+            self.progress_updated.emit("Comprimiendo y protegiendo archivos del modelo...")
 
-            # Crear archivo .zip (anteriormente .senati)
+            # Crear archivo comprimido con el formato especificado
             with zipfile.ZipFile(self.export_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
-                # Agregar metadatos especiales para el archivo
+                # Agregar metadatos especiales con información de protección
                 package_info = {
-                    'format_version': '1.0',
+                    'format_version': '2.0',
                     'model_type': self.model_type,
                     'model_name': self.model_name,
                     'exported_by': 'ClasificaTalento PRO',
-                    'export_date': datetime.datetime.now().isoformat()
+                    'export_date': datetime.datetime.now().isoformat(),
+                    'protection': {
+                        'enabled': self.protection_info['encrypted'],
+                        'level': self.protection_info['protection_level'],
+                        'format': self.protection_info['format']
+                    }
                 }
 
                 zipf.writestr('package_info.json', json.dumps(package_info, indent=2))
@@ -62,10 +78,19 @@ class ExportWorker(QThread):
                     for file in files:
                         file_path = os.path.join(root, file)
                         arcname = os.path.relpath(file_path, source_dir)
-                        zipf.write(file_path, arcname)
+                        
+                        # Leer y posiblemente encriptar el archivo
+                        with open(file_path, 'rb') as f:
+                            file_data = f.read()
+                            
+                        if self.protection_info['encrypted']:
+                            self.progress_updated.emit(f"Encriptando: {file}")
+                            file_data = self.encrypt_data(file_data)
+                        
+                        zipf.writestr(arcname, file_data)
                         self.progress_updated.emit(f"Agregando: {file}")
 
-            self.export_completed.emit(f"Modelo exportado exitosamente a: {self.export_path}")
+            self.export_completed.emit(f"Modelo exportado y protegido exitosamente en: {self.export_path}")
 
         except Exception as e:
             self.export_failed.emit(f"Error durante la exportación: {str(e)}")
@@ -81,43 +106,105 @@ class ImportWorker(QThread):
         super().__init__()
         self.file_path = file_path
         self.target_model_name = target_model_name
+        # Lista de extensiones válidas
+        self.valid_extensions = ['.zip', '.senati', '.mlmodel', '.aimodel', '.ctpro']
+
+    def decrypt_data(self, data):
+        """Desencripta los datos (usa el mismo método que la encriptación por ser XOR)"""
+        from itertools import cycle
+        key = b'ClasificaTalentoPRO'  # Debe ser la misma clave que en ExportWorker
+        return bytes(a ^ b for a, b in zip(data, cycle(key)))
+
+    def is_valid_model_file(self):
+        """Verifica si el archivo tiene una extensión válida"""
+        return any(self.file_path.lower().endswith(ext.lower()) for ext in self.valid_extensions)
 
     def run(self):
         """Ejecuta la importación del modelo"""
         try:
             self.progress_updated.emit("Verificando archivo de modelo...")
 
+            # Verificar extensión válida
+            if not self.is_valid_model_file():
+                self.import_failed.emit(f"Formato de archivo no válido. Formatos soportados: {', '.join(self.valid_extensions)}")
+                return
+
+            # Verificar si es un archivo ZIP válido
             if not zipfile.is_zipfile(self.file_path):
                 self.import_failed.emit("El archivo no es un formato de modelo válido")
                 return
 
             with zipfile.ZipFile(self.file_path, 'r') as zipf:
+                # Verificar metadatos
                 if 'package_info.json' not in zipf.namelist():
                     self.import_failed.emit("El archivo no contiene metadatos de modelo válidos")
                     return
 
-                package_info = json.loads(zipf.read('package_info.json').decode('utf-8'))
-                model_type = package_info.get('model_type', 'unknown')
-                original_name = package_info.get('model_name', 'imported_model')
+                # Leer y verificar la información del paquete
+                try:
+                    package_info = json.loads(zipf.read('package_info.json').decode('utf-8'))
+                    model_type = package_info.get('model_type', 'unknown')
+                    original_name = package_info.get('model_name', 'imported_model')
+                    format_version = package_info.get('format_version', '1.0')
+                    
+                    # Obtener información de protección si existe
+                    protection_info = package_info.get('protection', {
+                        'enabled': False,
+                        'level': 'none',
+                        'format': '.zip'
+                    })
 
-                self.progress_updated.emit(f"Importando modelo {model_type.upper()}: {original_name}")
-                final_model_name = self.target_model_name if self.target_model_name else original_name
+                    self.progress_updated.emit(f"Importando modelo {model_type.upper()}: {original_name} (Versión: {format_version})")
+                    
+                    if protection_info['enabled']:
+                        self.progress_updated.emit("Modelo protegido detectado - Iniciando proceso de desencriptación")
 
-                if model_type == 'ml':
-                    target_dir = os.path.join('saved_models', final_model_name)
-                elif model_type == 'dl':
-                    target_dir = os.path.join('saved_deep_models', final_model_name)
-                else:
-                    self.import_failed.emit(f"Tipo de modelo desconocido: {model_type}")
+                    final_model_name = self.target_model_name if self.target_model_name else original_name
+
+                    if model_type == 'ml':
+                        target_dir = os.path.join('saved_models', final_model_name)
+                    elif model_type == 'dl':
+                        target_dir = os.path.join('saved_deep_models', final_model_name)
+                    else:
+                        self.import_failed.emit(f"Tipo de modelo desconocido: {model_type}")
+                        return
+
+                    # Crear directorio destino
+                    os.makedirs(target_dir, exist_ok=True)
+                    self.progress_updated.emit("Extrayendo archivos del modelo...")
+
+                    # Procesar cada archivo
+                    for file_info in zipf.filelist:
+                        if file_info.filename != 'package_info.json':
+                            # Leer el contenido del archivo
+                            file_data = zipf.read(file_info.filename)
+                            
+                            # Desencriptar si es necesario
+                            if protection_info['enabled']:
+                                self.progress_updated.emit(f"Desencriptando: {file_info.filename}")
+                                try:
+                                    file_data = self.decrypt_data(file_data)
+                                except Exception as e:
+                                    self.import_failed.emit(f"Error al desencriptar {file_info.filename}: {str(e)}")
+                                    return
+
+                            # Escribir el archivo
+                            target_path = os.path.join(target_dir, file_info.filename)
+                            os.makedirs(os.path.dirname(target_path), exist_ok=True)
+                            with open(target_path, 'wb') as f:
+                                f.write(file_data)
+                            
+                            self.progress_updated.emit(f"Extraído: {file_info.filename}")
+
+                    self.import_completed.emit(f"Modelo importado exitosamente como: {final_model_name}")
+
+                except json.JSONDecodeError:
+                    self.import_failed.emit("Error al leer los metadatos del modelo")
+                    return
+                except Exception as e:
+                    self.import_failed.emit(f"Error al procesar el modelo: {str(e)}")
                     return
 
-                os.makedirs(target_dir, exist_ok=True)
-                self.progress_updated.emit("Extrayendo archivos del modelo...")
-                for file_info in zipf.filelist:
-                    if file_info.filename != 'package_info.json':
-                        zipf.extract(file_info, target_dir)
-                        self.progress_updated.emit(f"Extraído: {file_info.filename}")
-                self.import_completed.emit(f"Modelo importado exitosamente como: {final_model_name}")
         except Exception as e:
             self.import_failed.emit(f"Error durante la importación: {str(e)}")
 
@@ -221,21 +308,50 @@ class VistaImportarExportar(QWidget):
         layout.addLayout(model_selection_layout)
 
         export_options_layout = QGridLayout()
-        format_info_label = QLabel("Formato: .zip (Compatible con ClasificaTalento PRO)")
-        format_info_label.setStyleSheet("font-weight: bold;")
-        export_options_layout.addWidget(format_info_label, 0, 0, 1, 2)
+        
+        # Sección de formato personalizado
+        format_label = QLabel("Formato de exportación:")
+        self.format_combo = QComboBox()
+        self.format_combo.addItems([".zip", "Personalizado"])
+        self.format_combo.currentTextChanged.connect(self.on_format_changed)
+        export_options_layout.addWidget(format_label, 0, 0)
+        export_options_layout.addWidget(self.format_combo, 0, 1)
+
+        # Campo para formato personalizado
+        self.custom_format_label = QLabel("Extensión personalizada:")
+        self.custom_format_input = QComboBox()
+        self.custom_format_input.setEditable(True)
+        self.custom_format_input.addItems([".senati", ".mlmodel", ".aimodel", ".ctpro"])
+        self.custom_format_input.setEnabled(False)
+        export_options_layout.addWidget(self.custom_format_label, 1, 0)
+        export_options_layout.addWidget(self.custom_format_input, 1, 1)
+
+        # Sección de protección
+        protection_label = QLabel("🔒 Protección:")
+        protection_label.setStyleSheet("font-weight: bold;")
+        export_options_layout.addWidget(protection_label, 2, 0, 1, 2)
+
+        self.encrypt_checkbox = QCheckBox("Encriptar contenido del modelo")
+        self.encrypt_checkbox.setChecked(True)
+        export_options_layout.addWidget(self.encrypt_checkbox, 3, 0, 1, 2)
+
         self.include_metadata_checkbox = QCheckBox("Incluir metadatos completos (recomendado)")
         self.include_metadata_checkbox.setChecked(True)
-        self.include_metadata_checkbox.setEnabled(False)
-        export_options_layout.addWidget(self.include_metadata_checkbox, 1, 0, 1, 2)
+        export_options_layout.addWidget(self.include_metadata_checkbox, 4, 0, 1, 2)
+
         self.compress_checkbox = QCheckBox("Compresión optimizada (automática)")
         self.compress_checkbox.setChecked(True)
-        self.compress_checkbox.setEnabled(False)
-        export_options_layout.addWidget(self.compress_checkbox, 2, 0, 1, 2)
+        export_options_layout.addWidget(self.compress_checkbox, 5, 0, 1, 2)
+
+        # Información de seguridad
+        security_info = QLabel("ℹ️ La protección ayuda a prevenir el uso no autorizado del modelo")
+        security_info.setStyleSheet("color: #666; font-style: italic;")
+        export_options_layout.addWidget(security_info, 6, 0, 1, 2)
+
         layout.addLayout(export_options_layout)
 
         export_buttons_layout = QHBoxLayout()
-        export_file_btn = QPushButton("💾 Exportar como .zip")
+        export_file_btn = QPushButton("💾 Exportar Modelo")
         export_file_btn.setFixedHeight(40)
         export_file_btn.clicked.connect(self.export_to_file)
         backup_all_btn = QPushButton("📦 Backup Todos los Modelos")
@@ -296,16 +412,55 @@ class VistaImportarExportar(QWidget):
             self.export_model_combo.addItem("Error al cargar modelos")
 
     def select_import_file(self):
-        file_path, _ = QFileDialog.getOpenFileName(self, "Seleccionar Archivo de Modelo para Importar", "", "Archivos Zip (*.zip);;Todos los archivos (*)")
+        """Permite seleccionar un archivo de modelo para importar"""
+        formats = "Archivos de Modelo (*.zip *.senati *.mlmodel *.aimodel *.ctpro);;Todos los archivos (*)"
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, 
+            "Seleccionar Archivo de Modelo para Importar", 
+            "", 
+            formats
+        )
+        
         if file_path:
             self.activity_log.append(f"📁 Archivo seleccionado: {os.path.basename(file_path)}")
             custom_name = self.import_model_name_combo.currentText().strip()
             target_name = None if custom_name == "Usar nombre original" or not custom_name else custom_name
+            
+            # Verificar si es un formato personalizado
+            is_custom = not file_path.lower().endswith('.zip')
+            if is_custom:
+                self.activity_log.append("⚠️ Detectado formato personalizado - Verificando protección...")
+            
             self.import_worker = ImportWorker(file_path, target_name)
             self.import_worker.progress_updated.connect(self.update_import_progress)
             self.import_worker.import_completed.connect(self.on_import_completed)
             self.import_worker.import_failed.connect(self.on_import_failed)
             self.import_worker.start()
+
+    def dragEnterEvent(self, event):
+        """Maneja el inicio del drag de archivos"""
+        if event.mimeData().hasUrls():
+            for url in event.mimeData().urls():
+                file_path = url.toLocalFile()
+                valid_extensions = ['.zip', '.senati', '.mlmodel', '.aimodel', '.ctpro']
+                if any(file_path.lower().endswith(ext) for ext in valid_extensions):
+                    event.acceptProposedAction()
+                    return
+        event.ignore()
+
+    def dropEvent(self, event):
+        """Maneja el drop de archivos"""
+        for url in event.mimeData().urls():
+            file_path = url.toLocalFile()
+            valid_extensions = ['.zip', '.senati', '.mlmodel', '.aimodel', '.ctpro']
+            if any(file_path.lower().endswith(ext) for ext in valid_extensions):
+                self.activity_log.append(f"📁 Archivo arrastrado: {os.path.basename(file_path)}")
+                self.import_model(file_path)
+                event.acceptProposedAction()
+
+    def on_format_changed(self, text):
+        """Maneja el cambio en el formato de exportación"""
+        self.custom_format_input.setEnabled(text == "Personalizado")
 
     def export_to_file(self):
         if self.export_model_combo.count() == 0 or self.export_model_combo.currentText() == "No hay modelos disponibles":
@@ -318,15 +473,38 @@ class VistaImportarExportar(QWidget):
             return
 
         model_name = model_data['name']
-        suggested_filename = f"{model_name}.zip"
-        file_path, _ = QFileDialog.getSaveFileName(self, "Exportar Modelo como .zip", suggested_filename, "Archivos Zip (*.zip)")
+        
+        # Determinar la extensión del archivo
+        if self.format_combo.currentText() == "Personalizado":
+            extension = self.custom_format_input.currentText()
+            if not extension.startswith('.'):
+                extension = '.' + extension
+        else:
+            extension = ".zip"
+
+        suggested_filename = f"{model_name}{extension}"
+        file_path, _ = QFileDialog.getSaveFileName(
+            self, 
+            "Exportar Modelo", 
+            suggested_filename, 
+            f"Archivos {extension} (*{extension});;Todos los archivos (*)"
+        )
 
         if file_path:
-            if not file_path.lower().endswith('.zip'):
-                file_path += '.zip'
+            if not file_path.lower().endswith(extension.lower()):
+                file_path += extension
+            
             model_type = 'dl' if model_data.get('is_deep_learning', False) else 'ml'
-            self.activity_log.append(f"💾 Iniciando exportación: {model_name}")
-            self.export_worker = ExportWorker(model_name, file_path, model_type)
+            
+            # Agregar información de protección
+            protection_info = {
+                'encrypted': self.encrypt_checkbox.isChecked(),
+                'format': extension,
+                'protection_level': 'high' if self.encrypt_checkbox.isChecked() else 'none'
+            }
+            
+            self.activity_log.append(f"💾 Iniciando exportación protegida: {model_name}")
+            self.export_worker = ExportWorker(model_name, file_path, model_type, protection_info)
             self.export_worker.progress_updated.connect(self.update_export_progress)
             self.export_worker.export_completed.connect(self.on_export_completed)
             self.export_worker.export_failed.connect(self.on_export_failed)
