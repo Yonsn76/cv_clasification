@@ -24,11 +24,6 @@ from vista_importar_exportar import VistaImportarExportar
 # --- Icon Resource Function ---
 def get_icon(icon_name_or_path, color_str=None): 
     if icon_name_or_path == "app_icon":
-        # Intenta cargar un icono específico de la app si existe
-        # Ejemplo, reemplaza con tu ruta o usa el placeholder
-        # app_icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "icons", "app_logo.png") 
-        # if os.path.exists(app_icon_path):
-        #     return QIcon(app_icon_path)
         return QApplication.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon)
     elif icon_name_or_path == "pc":
         return QApplication.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon)
@@ -121,7 +116,7 @@ class CustomTitleBar(QWidget):
 class SidebarButtonWidget(QWidget):
     clicked = pyqtSignal()
 
-    def __init__(self, icon_path: str, text: str, parent=None): # 'parent' es el nombre correcto
+    def __init__(self, icon_path: str, text: str, parent=None): 
         super().__init__(parent)
         self.setObjectName("SidebarButtonWidget")
         self.setMinimumHeight(70) 
@@ -170,16 +165,13 @@ class SidebarButtonWidget(QWidget):
     def _update_icon_pixmap(self, active: bool):
         pixmap_size = QSize(28, 28) 
         
-        # Verificar si icon_path es una ruta de archivo o un carácter
         if os.path.exists(self.icon_path) and self.icon_path.lower().endswith((".svg", ".png", ".jpg", ".jpeg", ".ico")):
             if self.icon_path.lower().endswith(".svg"):
-                # Manejar archivos SVG
                 try:
                     from PyQt6.QtSvg import QSvgRenderer
                     renderer = QSvgRenderer(self.icon_path)
                     if not renderer.isValid():
                         self.icon_label.setText("!")
-                        print(f"Error: No se pudo cargar/renderizar SVG desde '{self.icon_path}'")
                         return
 
                     image = QImage(pixmap_size, QImage.Format.Format_ARGB32_Premultiplied)
@@ -194,20 +186,15 @@ class SidebarButtonWidget(QWidget):
 
                     painter.end()
                     self.icon_label.setPixmap(QPixmap.fromImage(image))
-                    print(f"Icono SVG cargado exitosamente: {self.icon_path}")
                 except ImportError:
-                    print(f"Módulo SVG no disponible, usando QIcon como fallback para: {self.icon_path}")
-                    # Fallback usando QIcon
                     icon = QIcon(self.icon_path)
                     pixmap = icon.pixmap(pixmap_size)
                     self.icon_label.setPixmap(pixmap)
             else:
-                # Manejar archivos PNG, JPG, etc.
                 icon = QIcon(self.icon_path)
                 pixmap = icon.pixmap(pixmap_size)
 
                 if active:
-                    # Aplicar color de acento a la imagen
                     colored_pixmap = QPixmap(pixmap.size())
                     colored_pixmap.fill(Qt.GlobalColor.transparent)
                     painter = QPainter(colored_pixmap)
@@ -220,19 +207,16 @@ class SidebarButtonWidget(QWidget):
                 else:
                     self.icon_label.setPixmap(pixmap)
 
-                print(f"Icono PNG cargado exitosamente: {self.icon_path}")
-        else: # Asumir que es un carácter de texto (fallback)
-            font_icon = QFont(); font_icon.setPointSize(22) # Usar el tamaño de icono definido en el widget
+        else: 
+            font_icon = QFont(); font_icon.setPointSize(22)
             self.icon_label.setFont(font_icon)
-            self.icon_label.setText(self.icon_path) # Mostrar el carácter/ruta como texto
+            self.icon_label.setText(self.icon_path) 
             
-            # Intentar obtener el color del tema desde la ventana principal para el estado inactivo del texto-icono
-            # Esto es un poco indirecto, idealmente el tema se manejaría de forma más centralizada
-            inactive_color = self.active_color_hex # Fallback si no se puede obtener el color inactivo
-            # El widget padre directo es el QWidget de la sidebar, su padre es main_content_widget, luego overall_widget, luego MainWindow
-            main_window = self.window() # Obtiene la ventana de nivel superior (MainWindow)
+            main_window = self.window()
             if isinstance(main_window, MainWindow):
                  inactive_color = main_window.color_sidebar_icon_inactive
+            else:
+                inactive_color = "#8A959E" 
 
             current_color = self.active_color_hex if active else inactive_color
             self.icon_label.setStyleSheet(f"color: {current_color}; background-color: transparent;")
@@ -277,7 +261,7 @@ class MainWindow(QMainWindow):
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
         self.setWindowTitle("ClasificaTalento PRO") 
         self.setWindowIcon(get_icon("app_icon")) 
-        self.setGeometry(100, 100, 1000, 720) 
+        self.setGeometry(100, 100, 1200, 800)
 
         self.overall_widget = QWidget()
         self.overall_widget.setObjectName("OverallWidgetFrame")
@@ -309,21 +293,17 @@ class MainWindow(QMainWindow):
             (os.path.join(icons_dir, "importar_exportar.png"), "Import/Export")
         ]
         
-        # Verificar si los archivos de iconos existen
         actual_button_data = []
         for icon_path, text in button_data:
-            if os.path.exists(icon_path) and icon_path.lower().endswith((".svg", ".png", ".jpg", ".jpeg", ".ico")):
+            if os.path.exists(icon_path):
                 actual_button_data.append((icon_path, text))
-                print(f"Icono encontrado: {icon_path}")
             else:
-                print(f"Advertencia: Icono '{icon_path}' no encontrado. Usando fallback de texto para '{text}'.")
-                # Asignar un carácter de fallback si el archivo no existe
                 fallback_chars = {"Inicio":"🏠", "Entrenamiento":"🏋️", "Modelos":"🧠", "Clasificar CV":"📄", "Import/Export":"🔄"}
                 actual_button_data.append((fallback_chars.get(text, "?"), text))
 
 
         for i, (icon_path_or_char, text) in enumerate(actual_button_data):
-            button = SidebarButtonWidget(icon_path_or_char, text, parent=self) # CORREGIDO: parent=self
+            button = SidebarButtonWidget(icon_path_or_char, text, parent=self)
             button.clicked.connect(self.handle_sidebar_button_click)
             sidebar_layout.addWidget(button); self.sidebar_buttons.append(button)
             self.button_to_page_map[button] = i 
@@ -340,9 +320,8 @@ class MainWindow(QMainWindow):
         inicio_page_layout = QVBoxLayout(self.inicio_page_widget)
         inicio_page_layout.setContentsMargins(25, 15, 25, 15); inicio_page_layout.setSpacing(12)
         
-        # Ejemplo de contenido para la página de Inicio
         self.notification1_widget_inicio = QWidget(); notification1_layout_inicio = QHBoxLayout(self.notification1_widget_inicio); notification1_layout_inicio.setContentsMargins(0,0,0,0)
-        icon_label1_inicio = QLabel("✨"); icon_font = icon_label1_inicio.font(); icon_font.setPointSize(18); icon_label1_inicio.setFont(icon_font); icon_label1_inicio.setObjectName("notificationIcon") # Puede necesitar estilo específico si el icono es texto
+        icon_label1_inicio = QLabel("✨"); icon_font = icon_label1_inicio.font(); icon_font.setPointSize(18); icon_label1_inicio.setFont(icon_font); icon_label1_inicio.setObjectName("notificationIcon")
         text_label1_inicio = QLabel("Bienvenido a ClasificaTalento PRO. Selecciona una opción de la barra lateral."); text_label1_inicio.setObjectName("notificationText")
         notification1_layout_inicio.addWidget(icon_label1_inicio); notification1_layout_inicio.addWidget(text_label1_inicio); notification1_layout_inicio.addStretch()
         
@@ -359,12 +338,12 @@ class MainWindow(QMainWindow):
         self.entrenamiento_page_widget.setObjectName("EntrenamientoPage")
         self.central_stacked_widget.addWidget(self.entrenamiento_page_widget)
 
-        # Página 2: Modelos
+        # Página 2: Modelos (usa VistaHerramientas)
         self.modelos_page_widget = VistaHerramientas() 
         self.modelos_page_widget.setObjectName("ModelosPage")
         self.central_stacked_widget.addWidget(self.modelos_page_widget)
 
-        # Página 3: Clasificar CV
+        # Página 3: Clasificar CV (usa VistaCentroAccion)
         self.clasificar_cv_page_widget = VistaCentroAccion() 
         self.clasificar_cv_page_widget.setObjectName("ClasificarCVPage")
         self.central_stacked_widget.addWidget(self.clasificar_cv_page_widget)
@@ -390,38 +369,45 @@ class MainWindow(QMainWindow):
         self.apply_stylesheet()
 
     def init_dark_theme_colors(self):
-        self.color_sidebar_bg = "#1E272E"; self.color_central_bg = "#222a30"
-        self.color_text_light = "#E0E0E0"; self.color_text_medium = "#BDC3C7"
-        self.color_accent_red = "#E74C3C"; self.color_accent_blue_link = "#3498DB"
+        self.color_sidebar_bg = "#1E272E"; self.color_central_bg = "#252C33"
+        self.color_text_light = "#E0E0E0"; self.color_text_medium = "#BDC3C7"; self.color_text_dark = "#7F8C8D"
+        self.color_accent_red = "#E74C3C"; self.color_accent_blue = "#3498DB"; self.color_accent_green = "#27AE60"; self.color_accent_purple = "#8E44AD"; self.color_accent_orange = "#F39C12";
         self.color_titlebar_bg = "#181D20"; self.color_window_border = "#050505"
         self.color_sidebar_icon_inactive = "#8A959E"; self.color_sidebar_button_active_bg = "#2C3A47"
-        self.color_sidebar_button_hover_celeste = "#4A5568"; self.color_sidebar_button_active_hover_bg = "#35424D"
+        self.color_sidebar_button_hover_bg = "#3A4750"; self.color_sidebar_button_active_hover_bg = "#35424D"
         self.color_titlebar_button_hover = "#3A4045"; self.color_titlebar_close_hover = self.color_accent_red
         darker_accent = QColor(self.color_accent_red).darker(120); self.color_titlebar_close_pressed = darker_accent.name()
 
-        # Colores para QComboBox tema oscuro
-        self.color_combo_bg = "#2C3E50"
-        self.color_combo_border = "#34495E"
-        self.color_combo_hover_bg = "#34495E"
-        self.color_combo_item_selected_bg = "#4A6B8A"
-        self.color_combo_text = "#ECF0F1"
+        # Colores para componentes
+        self.color_combo_bg = "#2C3E50"; self.color_combo_border = self.color_text_dark; self.color_combo_hover_bg = "#34495E"
+        self.color_combo_item_selected_bg = self.color_accent_blue; self.color_combo_text = self.color_text_light
+        self.color_input_bg = "#34495E"; self.color_input_border = self.color_text_dark;
+        self.color_groupbox_bg = "#333B47"; self.color_groupbox_border = "#4A5568";
+        self.color_table_bg = self.color_central_bg; self.color_table_alt_bg = self.color_groupbox_bg; self.color_table_grid = self.color_groupbox_border;
+        self.color_table_header_bg = self.color_accent_orange;
+        self.color_progressbar_bg = self.color_input_bg
+        self.color_dialog_bg_start = "#2C3E50"; self.color_dialog_bg_end = "#34495E";
+
 
     def init_light_theme_colors(self):
         self.color_sidebar_bg = "#E8EAF6"; self.color_central_bg = "#FAFAFA"
-        self.color_text_light = "#263238"; self.color_text_medium = "#546E7A" # Colores de texto oscuros para tema claro
-        self.color_accent_red = "#D32F2F"; self.color_accent_blue_link = "#1976D2"
+        self.color_text_light = "#263238"; self.color_text_medium = "#546E7A"; self.color_text_dark = "#90A4AE"
+        self.color_accent_red = "#D32F2F"; self.color_accent_blue = "#1976D2"; self.color_accent_green = "#388E3C"; self.color_accent_purple = "#7B1FA2"; self.color_accent_orange = "#F57C00";
         self.color_titlebar_bg = "#E0E0E0"; self.color_window_border = "#BDBDBD"
         self.color_sidebar_icon_inactive = "#78909C"; self.color_sidebar_button_active_bg = "#C5CAE9"
-        self.color_sidebar_button_hover_celeste = "#E0E5F0"; self.color_sidebar_button_active_hover_bg = "#D0D0D0"
+        self.color_sidebar_button_hover_bg = "#E0E5F0"; self.color_sidebar_button_active_hover_bg = "#D0D0D0"
         self.color_titlebar_button_hover = "#CFD8DC"; self.color_titlebar_close_hover = self.color_accent_red
         darker_accent = QColor(self.color_accent_red).darker(120); self.color_titlebar_close_pressed = darker_accent.name()
-
-        # Colores para QComboBox tema claro
-        self.color_combo_bg = "#CFD8DC"
-        self.color_combo_border = "#B0BEC5"
-        self.color_combo_hover_bg = "#B0BEC5"
-        self.color_combo_item_selected_bg = "#90A4AE"
-        self.color_combo_text = "#263238"
+        
+        # Colores para componentes
+        self.color_combo_bg = "#CFD8DC"; self.color_combo_border = "#B0BEC5"; self.color_combo_hover_bg = "#B0BEC5"
+        self.color_combo_item_selected_bg = "#90A4AE"; self.color_combo_text = self.color_text_light
+        self.color_input_bg = "#ECEFF1"; self.color_input_border = self.color_text_dark
+        self.color_groupbox_bg = "#FFFFFF"; self.color_groupbox_border = "#CFD8DC"
+        self.color_table_bg = self.color_central_bg; self.color_table_alt_bg = "#F5F5F5"; self.color_table_grid = self.color_groupbox_border
+        self.color_table_header_bg = self.color_accent_orange
+        self.color_progressbar_bg = self.color_input_bg
+        self.color_dialog_bg_start = "#EEEEEE"; self.color_dialog_bg_end = "#E0E0E0";
 
     def open_theme_options(self):
         items = ["Color de Acento", "Color de Fondo Principal", "Color de Texto Global", "Fuente de la Aplicación", 
@@ -434,18 +420,21 @@ class MainWindow(QMainWindow):
             elif item == "Color de Texto Global": self.change_global_text_color()
             elif item == "Fuente de la Aplicación": self.change_application_font()
             elif item == "Tema Oscuro (Predefinido)":
-                self.init_dark_theme_colors(); self.apply_stylesheet(); self.update_dependent_widgets_color()
+                self.init_dark_theme_colors()
+                self.apply_stylesheet()
+                self.update_dependent_widgets_color()
             elif item == "Tema Claro (Predefinido)":
-                self.init_light_theme_colors(); self.apply_stylesheet(); self.update_dependent_widgets_color()
+                self.init_light_theme_colors()
+                self.apply_stylesheet()
+                self.update_dependent_widgets_color()
 
     def change_global_text_color(self):
         initial_color = QColor(self.color_text_light)
         new_color = QColorDialog.getColor(initial_color, self, "Seleccionar Color de Texto Global")
         if new_color.isValid():
             self.color_text_light = new_color.name()
-            self.color_text_medium = new_color.name() # Se iguala al color de texto principal
-            # La lógica en change_main_background_color y en init_light_theme_colors
-            # puede anular esto si el fondo es muy claro, para asegurar legibilidad.
+            self.color_text_medium = new_color.lighter(150).name()
+            self.color_text_dark = new_color.darker(110).name()
             self.apply_stylesheet()
             self.update_dependent_widgets_color()
 
@@ -453,24 +442,76 @@ class MainWindow(QMainWindow):
         initial_color = QColor(self.color_accent_red)
         new_color = QColorDialog.getColor(initial_color, self, "Seleccionar Nuevo Color de Acento")
         if new_color.isValid():
+            # Asignar todos los colores de acento basados en el nuevo color
             self.color_accent_red = new_color.name()
+            q_new_color = QColor(new_color)
+            self.color_accent_blue = q_new_color.lighter(115).name()
+            self.color_accent_green = q_new_color.darker(115).name()
+            self.color_accent_purple = q_new_color.darker(105).name()
+            self.color_accent_orange = q_new_color.lighter(125).name()
             self.color_titlebar_close_hover = self.color_accent_red
-            darker_accent = QColor(self.color_accent_red).darker(120)
-            self.color_titlebar_close_pressed = darker_accent.name()
-            self.apply_stylesheet(); self.update_dependent_widgets_color()
+            self.color_titlebar_close_pressed = q_new_color.darker(120).name()
+            self.apply_stylesheet()
+            self.update_dependent_widgets_color()
+    
     def change_main_background_color(self):
+        """
+        CORREGIDO: Este método ahora deriva todos los colores relacionados del
+        color de fondo seleccionado por el usuario, en lugar de resetear al tema.
+        """
         initial_color = QColor(self.color_central_bg)
         new_color = QColorDialog.getColor(initial_color, self, "Seleccionar Color de Fondo Principal")
+        
         if new_color.isValid():
             self.color_central_bg = new_color.name()
-            self.color_sidebar_bg = QColor(self.color_central_bg).darker(110).name()
-            self.color_titlebar_bg = QColor(self.color_central_bg).darker(125).name()
-            avg_intensity = (new_color.red() + new_color.green() + new_color.blue()) / 3
-            if avg_intensity > 127: 
-                self.color_text_light = "#212121"; self.color_text_medium = "#757575"; self.color_sidebar_icon_inactive = "#546E7A"
-            else: 
-                self.color_text_light = "#E0E0E0"; self.color_text_medium = "#BDC3C7"; self.color_sidebar_icon_inactive = "#8A959E"
-            self.apply_stylesheet(); self.update_dependent_widgets_color()
+            q_central_color = QColor(self.color_central_bg)
+            
+            is_light_bg = (q_central_color.red() * 0.299 + q_central_color.green() * 0.587 + q_central_color.blue() * 0.114) > 186
+
+            # Derivar todos los demás colores del nuevo fondo
+            if is_light_bg:
+                # Derivaciones para tema claro
+                self.color_sidebar_bg = q_central_color.darker(105).name()
+                self.color_titlebar_bg = q_central_color.darker(110).name()
+                self.color_groupbox_bg = "#FFFFFF"
+                self.color_input_bg = q_central_color.darker(102).name()
+                self.color_text_light = "#212121"
+                self.color_text_medium = "#616161"
+                self.color_text_dark = "#9E9E9E"
+                self.color_window_border = "#BDBDBD"
+                self.color_groupbox_border = "#E0E0E0"
+                self.color_input_border = "#BDBDBD"
+                self.color_sidebar_icon_inactive = "#757575"
+                self.color_sidebar_button_hover_bg = q_central_color.darker(110).name()
+            else:
+                # Derivaciones para tema oscuro
+                self.color_sidebar_bg = q_central_color.lighter(110).name()
+                self.color_titlebar_bg = q_central_color.darker(110).name()
+                self.color_groupbox_bg = q_central_color.lighter(105).name()
+                self.color_input_bg = q_central_color.lighter(115).name()
+                self.color_text_light = "#E0E0E0"
+                self.color_text_medium = "#BDC3C7"
+                self.color_text_dark = "#7F8C8D"
+                self.color_window_border = "#050505"
+                self.color_groupbox_border = q_central_color.lighter(120).name()
+                self.color_input_border = self.color_text_dark
+                self.color_sidebar_icon_inactive = "#8A959E"
+                self.color_sidebar_button_hover_bg = q_central_color.lighter(115).name()
+
+            # Colores comunes derivados
+            self.color_combo_bg = self.color_input_bg
+            self.color_combo_text = self.color_text_light
+            self.color_combo_border = self.color_input_border
+            self.color_combo_hover_bg = QColor(self.color_input_bg).lighter(110).name() if not is_light_bg else QColor(self.color_input_bg).darker(110).name()
+            self.color_table_alt_bg = self.color_groupbox_bg
+            self.color_table_bg = self.color_central_bg
+            self.color_table_grid = self.color_groupbox_border
+            self.color_progressbar_bg = self.color_input_bg
+            
+            # Reaplicar estilos y actualizar widgets dependientes
+            self.apply_stylesheet()
+            self.update_dependent_widgets_color()
+            
     def change_application_font(self):
         current_font = QFont(self.app_font_family, self.app_font_size_pt)
         font, ok = QFontDialog.getFont(current_font, self, "Seleccionar Fuente Principal")
@@ -488,29 +529,8 @@ class MainWindow(QMainWindow):
         if hasattr(self, 'title_bar') and hasattr(self.title_bar, 'btn_theme'):
             self.title_bar.btn_theme.setIcon(get_icon("paintbrush", color_str=self.color_text_light))
         for btn in self.sidebar_buttons:
-            if btn.property("active") == "true": 
-                btn._update_icon_pixmap(True) # El color del icono activo ya usa self.color_accent_red
-            else:
-                btn._update_icon_pixmap(False) # El icono inactivo usa self.color_sidebar_icon_inactive
-
-        # Actualizar vistas hijas si tienen un método update_theme_colors
-        # Esto es importante para que las vistas como ML y DL puedan refrescar sus propios estilos.
-        # Asumimos que las vistas de entrenamiento están directamente en el stacked widget.
-        current_page_widget = self.central_stacked_widget.currentWidget()
-        if hasattr(current_page_widget, 'update_theme_colors'):
-            current_page_widget.update_theme_colors(
-                main_text_color=self.color_text_light,
-                medium_text_color=self.color_text_medium,
-                central_bg_color=self.color_central_bg,
-                window_border_color=self.color_window_border,
-                accent_color=self.color_accent_red,
-                # Pasar más colores si son necesarios para las sub-vistas
-                combo_bg_color=self.color_combo_bg,
-                combo_text_color=self.color_combo_text,
-                combo_border_color=self.color_combo_border,
-                combo_hover_bg_color=self.color_combo_hover_bg,
-                combo_item_selected_bg_color=self.color_combo_item_selected_bg
-            )
+            is_active = btn.property("active") == "true"
+            btn.set_active(is_active, self.color_accent_red)
 
     def handle_sidebar_button_click(self):
         clicked_button = self.sender()
@@ -521,10 +541,7 @@ class MainWindow(QMainWindow):
         page_index = self.button_to_page_map.get(active_button, 0) 
         for button in self.sidebar_buttons:
             is_active = (button == active_button)
-            if is_active:
-                button.set_active(True, self.color_accent_red) 
-            else:
-                button.set_active(False)
+            button.set_active(is_active, self.color_accent_red)
         if hasattr(self, 'central_stacked_widget'):
             self.central_stacked_widget.setCurrentIndex(page_index)
 
@@ -540,267 +557,303 @@ class MainWindow(QMainWindow):
         if font_size_for_qss_val <=0: font_size_for_qss_val = 10 
         font_size_for_qss = f"{font_size_for_qss_val}pt"
 
-        color_notif_critical_bg = QColor(self.color_accent_red).lighter(110).name() if QColor(self.color_accent_red).lightnessF() < 0.3 else QColor(self.color_accent_red).darker(150).name()
-        color_notif_critical_border = self.color_accent_red
-        color_notif_critical_icon = self.color_accent_red
-        color_notif_warning_bg = "#4A3B2B"; color_notif_warning_border = "#D6893A"; color_notif_warning_icon = "#FFC107";
-        color_notif_info_bg = QColor(self.color_central_bg).lighter(115).name(); color_notif_info_border = QColor(self.color_accent_blue_link).darker(110).name(); color_notif_info_icon = self.color_accent_blue_link;
-        color_notif_success_bg = "#2D4A3A"; color_notif_success_border = "#3AD689"; color_notif_success_icon = "#5CB85C";
-        color_notif_action_button_bg = self.color_sidebar_icon_inactive; 
-        color_notif_action_button_hover_bg = QColor(self.color_sidebar_icon_inactive).lighter(120).name();
+        accent_blue_rgba = f"rgba({QColor(self.color_accent_blue).red()}, {QColor(self.color_accent_blue).green()}, {QColor(self.color_accent_blue).blue()}, 40)"
 
         self.setStyleSheet(f"""
-            QWidget {{ font-family: "{font_family_for_qss}"; }}
-            #OverallWidgetFrame {{ background-color: {self.color_central_bg}; border: 1px solid {self.color_window_border}; }}
+            /* --- GENERAL --- */
+            QWidget {{
+                font-family: "{font_family_for_qss}";
+                color: {self.color_text_light};
+                background-color: {self.color_central_bg};
+            }}
+            QScrollArea {{
+                background-color: transparent;
+                border: none;
+            }}
+            QScrollArea > QWidget > QWidget {{
+                 background-color: transparent;
+            }}
+            
+            /* --- BARRA DE TÍTULO --- */
             #CustomTitleBar {{ background-color: {self.color_titlebar_bg}; }}
             #TitleBarText {{ color: {self.color_text_light}; font-size: 13px; padding-left: 8px; font-weight: bold;}}
             #CustomTitleBar QPushButton {{ background-color: transparent; color: {self.color_text_light}; border: none; font-size: 16px; font-family: "Segoe UI Symbol", "DejaVu Sans", "{font_family_for_qss}"; }}
             #CustomTitleBar QPushButton#ThemeButton {{ font-size: 14px; }}
             #CustomTitleBar QPushButton:hover {{ background-color: {self.color_titlebar_button_hover}; }}
             #CustomTitleBar QPushButton#CloseButton:hover {{ background-color: {self.color_titlebar_close_hover}; color: white; }}
-            #CustomTitleBar QPushButton#ThemeButton:hover {{ background-color: {self.color_titlebar_button_hover};}}
             #CustomTitleBar QPushButton:pressed {{ background-color: #4A5055; }}
             #CustomTitleBar QPushButton#CloseButton:pressed {{ background-color: {self.color_titlebar_close_pressed}; }}
 
+            /* --- BARRA LATERAL (SIDEBAR) --- */
             #sidebar {{ background-color: {self.color_sidebar_bg}; }}
             SidebarButtonWidget {{
                 background-color: transparent;
-                border-radius: 10px;
-                margin: 3px;
-                padding: 6px;
-                border: 1px solid transparent;
+                border-radius: 8px;
+                margin: 2px;
+                border: 2px solid transparent;
             }}
-
-            /* Estado normal - hover gris */
             SidebarButtonWidget[active="false"]:hover {{
-                background-color: #3A3A3A;
-                border: 1px solid #4A4A4A;
+                background-color: {self.color_sidebar_button_hover_bg};
             }}
-
-            /* Estado seleccionado - gris claro */
             SidebarButtonWidget[active="true"] {{
-                background-color: #5A5A5A;
-                border: 1px solid #777777;
-            }}
-
-            /* Estado seleccionado - hover gris más claro */
-            SidebarButtonWidget[active="true"]:hover {{
-                background-color: #333333;
-                border: 1px solid #666666;
-            }}
-
-            /* Iconos y texto - estado normal */
-            SidebarButtonWidget #SidebarIconLabel {{
-                padding-bottom: 2px;
+                background-color: {self.color_sidebar_button_active_bg};
+                border: 2px solid {self.color_accent_red};
             }}
             SidebarButtonWidget #SidebarTextLabel {{
-                color: {self.color_text_medium}; /* Usar color de texto medio del tema */
+                color: {self.color_text_medium};
                 font-size: 9pt;
             }}
-
-            /* Iconos y texto - estado seleccionado */
             SidebarButtonWidget[active="true"] #SidebarTextLabel {{
-                color: {self.color_text_light}; /* Usar color de texto principal del tema */
-                font-weight: bold;
-            }}
-
-            /* Iconos y texto - hover */
-            SidebarButtonWidget[active="false"]:hover #SidebarTextLabel {{
-                color: {self.color_text_light}; /* Usar color de texto principal del tema */
-                font-weight: 500;
-            }}
-
-
-            #InicioPage, #EntrenamientoPage, #ModelosPage, #ClasificarCVPage, #ImportarExportarPage,
-            #seleccion, #VistaHerramientas, #VistaCentroAccion,
-            VistaMLEntrenamiento, VistaDLEntrenamiento, #VistaSeleccionContenido {{ /* Añadido VistaSeleccionContenido */
-                background-color: {self.color_central_bg}; 
-            }}
-            QScrollArea {{ /* Hacer QScrollArea transparente */
-                background-color: transparent;
-                border: none; /* Opcional: quitar borde si lo tuviera por defecto */
-            }}
-            QScrollArea > QWidget > QWidget {{ /* Para el viewport del QScrollArea */
-                 background-color: transparent;
-            }}
-            #TituloSeccion, #TituloEntrenamiento {{ /* Añadido #TituloEntrenamiento */
-                color: {self.color_text_light}; 
-                font-size: 18pt; /* Ajustado para consistencia, era 22pt en entrenar_vista */
-                font-weight: bold; 
-                padding: 20px; 
-                margin-bottom: 15px; /* Margen inferior para #TituloEntrenamiento */
-            }}
-            #DescripcionSeccion, #SubtituloEntrenamiento {{ /* Añadido #SubtituloEntrenamiento */
-                color: {self.color_text_medium}; 
-                font-size: 12pt; /* Ajustado para consistencia, era 14pt en entrenar_vista */
-                padding: 10px; 
-                margin-bottom: 25px; /* Margen inferior para #SubtituloEntrenamiento */
-            }}
-            #InstruccionEntrenamiento {{
-                color: {self.color_text_medium}; /* Era #95A5A6 */
-                font-size: 11pt; /* Era 12px */
-                margin: 20px 35px; /* Margen ajustado */
-                padding: 15px;
-                background-color: {QColor(self.color_central_bg).lighter(105).name()}; /* Era rgba(52, 73, 94, 0.3) */
-                border-radius: 8px;
-            }}
-            QLabel {{ color: {self.color_text_light}; }}
-            QTextEdit {{ background-color: {QColor(self.color_central_bg).lighter(110).name()}; color: {self.color_text_light}; border: 1px solid {QColor(self.color_window_border).lighter(150).name()}; border-radius: 4px; padding: 5px; }}
-            QProgressBar {{ border: 1px solid {QColor(self.color_window_border).lighter(150).name()}; border-radius: 4px; text-align: center; color: {self.color_text_light}; background-color: {QColor(self.color_central_bg).lighter(110).name()}; }}
-            QProgressBar::chunk {{ background-color: {self.color_accent_red}; border-radius: 3px; width:10px; margin:0.5px;}}
-
-            QLabel#notificationIcon {{ color: {self.color_accent_red}; font-size: 15px; font-weight: bold; padding-right: 10px; }}
-            QLabel#notificationText {{ color: {self.color_text_medium}; font-size: 12.5px; }}
-            QLabel#notificationLink a, QLabel#licenseLink a {{ color: {self.color_accent_blue_link}; text-decoration: none; font-size: 12.5px; }}
-            QLabel#notificationLink a:hover, QLabel#licenseLink a:hover {{ text-decoration: underline; }}
-            QLabel#licenseLink {{ color: {self.color_text_medium}; padding-bottom: 5px; padding-right: 5px; }}
-
-            QToolBar {{ background-color: {self.color_sidebar_bg}; border-left: 1px solid {self.color_window_border}; padding: 5px; }}
-            QToolBar QToolButton {{ padding: 7px; margin: 1px 0px; border-radius: 4px; background-color: transparent; color: {self.color_text_light}; border: 1px solid transparent; }}
-            QToolBar QToolButton:hover {{ background-color: {self.color_sidebar_button_hover_celeste}; border: 1px solid {self.color_sidebar_button_hover_celeste}; }}
-            
-            QFrame#ToolFrame {{ background-color: {QColor(self.color_central_bg).lighter(110).name()}; border-radius: 6px; padding: 15px; }}
-            QPushButton#ToolActionButton {{ background-color: {self.color_accent_blue_link}; color: white; border-radius: 4px; font-size: 11pt; font-weight: bold; padding: 8px 12px; }}
-            QPushButton#ToolActionButton:hover {{ background-color: {QColor(self.color_accent_blue_link).lighter(120).name()}; }}
-            QPushButton#ToolActionButton:pressed {{ background-color: {QColor(self.color_accent_blue_link).darker(120).name()}; }}
-
-            /* Estilos para TrainingOptionCard y sus componentes */
-            QFrame#TrainingOptionCard {{
-                background-color: {QColor(self.color_central_bg).lighter(120).name()}; /* Ajustado para ser un poco más claro */
-                border-radius: 15px;
-                border: 2px solid {QColor(self.color_central_bg).lighter(135).name()}; /* Borde ajustado para mejor contraste */
-                padding: 20px;
-            }}
-            QFrame#TrainingOptionCard:hover {{
-                border: 2px solid {self.color_accent_blue_link}; 
-                background-color: {QColor(self.color_central_bg).lighter(130).name()}; /* Ajustado para ser más claro que el fondo normal y el borde normal */
-            }}
-            QLabel#CardModelIndicator {{ /* Estilo para el indicador de imagen/texto si no carga imagen */
-                background-color: {QColor(self.color_central_bg).lighter(115).name()};
                 color: {self.color_text_light};
-                border-radius: 10px;
-                font-size: 16px;
                 font-weight: bold;
-                padding: 5px;
-                min-width: 60px; /* Para asegurar que el texto no se corte */
-                min-height: 40px;
             }}
-            QPushButton#CardMainButton {{
+            SidebarButtonWidget[active="false"]:hover #SidebarTextLabel {{
+                color: {self.color_text_light};
+            }}
+            
+            /* --- ETIQUETAS (LABELS) GENERALES --- */
+            QLabel {{
+                background-color: transparent;
+                color: {self.color_text_light};
+            }}
+            /* Títulos de sección grandes */
+            #Mejorar_MainTitleLabel, #TituloEntrenamiento, #ClasificarCVPage QLabel[font-size="24"], VistaMLEntrenamiento QLabel[font-size="20"], VistaDLEntrenamiento QLabel[font-size="20"], VistaImportarExportar QLabel[font-size="20"] {{
+                color: {self.color_text_light}; 
+                font-size: 22pt;
+                font-weight: bold; 
+            }}
+            /* Subtítulos de sección */
+            #Mejorar_SubtitleLabel, #SubtituloEntrenamiento {{
+                color: {self.color_text_medium};
+                font-size: 14pt;
+            }}
+            
+            /* --- BOTONES (PUSHBUTTON) GENERALES --- */
+            QPushButton {{
+                background-color: {self.color_accent_blue};
                 color: white;
                 border: none;
-                border-radius: 20px;
-                font-size: 13pt; /* Era 15px */
+                border-radius: 6px;
+                font-size: 13px;
                 font-weight: bold;
-                padding: 10px 20px;
+                padding: 9px 18px;
             }}
-            QPushButton#CardMainButton[optionType="ml"] {{
-                background-color: {self.color_accent_blue_link}; /* Era #3498DB */
+            QPushButton:hover {{
+                background-color: {QColor(self.color_accent_blue).lighter(115).name()};
             }}
-            QPushButton#CardMainButton[optionType="dl"] {{
-                background-color: {self.color_accent_red}; /* Era #E74C3C */
+            QPushButton:pressed {{
+                background-color: {QColor(self.color_accent_blue).darker(115).name()};
             }}
-            QPushButton#CardMainButton[optionType="ml"]:hover {{
-                background-color: {QColor(self.color_accent_blue_link).lighter(120).name()};
+            QPushButton:disabled {{
+                background-color: {self.color_text_dark};
+                color: {self.color_text_medium};
             }}
-            QPushButton#CardMainButton[optionType="dl"]:hover {{
-                background-color: {QColor(self.color_accent_red).lighter(120).name()};
-            }}
-            QPushButton#CardMainButton[optionType="ml"]:pressed {{
-                background-color: {QColor(self.color_accent_blue_link).darker(120).name()};
-            }}
-            QPushButton#CardMainButton[optionType="dl"]:pressed {{
-                background-color: {QColor(self.color_accent_red).darker(120).name()};
-            }}
-            QPushButton#CardConfigButton {{
-                background-color: transparent;
-                color: {self.color_text_medium}; /* Era #7F8C8D */
-                border: 1px solid {self.color_text_medium}; /* Era #7F8C8D */
-                border-radius: 18px;
-                font-size: 11pt; /* Era 13px */
-                padding: 8px 18px;
-            }}
-            QPushButton#CardConfigButton:hover {{
-                color: {self.color_text_light}; /* Era #BDC3C7 */
-                border: 1px solid {self.color_text_light}; /* Era #BDC3C7 */
-            }}
-            QLabel#CardDescriptionLabel {{
-                color: {QColor(self.color_text_medium).lighter(110).name()}; /* Era #95A5A6 */
-                font-size: 10pt; /* Era 12px */
-                margin: 10px 0px;
+
+            /* --- ENTRADAS DE TEXTO (QLineEdit & QTextEdit) --- */
+            QLineEdit, QTextEdit {{
+                background-color: {self.color_input_bg};
+                color: {self.color_text_light};
+                border: 1px solid {self.color_input_border};
+                border-radius: 6px;
                 padding: 8px;
+                font-size: 13px;
             }}
-            /* Fin de estilos para TrainingOptionCard */
+            QLineEdit:focus, QTextEdit:focus {{
+                border: 1px solid {self.color_accent_blue};
+            }}
+            QTextEdit {{
+                 font-family: "Segoe UI", Arial, sans-serif;
+            }}
 
-            QFrame[objectName^="NotifFrame_"] {{ border-radius: 5px; padding: 12px; }}
-            QFrame#NotifFrame_critical {{ background-color: {color_notif_critical_bg}; border: 1px solid {color_notif_critical_border}; }}
-            QFrame#NotifFrame_critical QLabel[objectName!="NotifTextLabel"] {{ color: {color_notif_critical_icon}; }} 
-            QFrame#NotifFrame_critical QLabel#NotifTextLabel {{ color: {self.color_text_light}; }} 
-            QFrame#NotifFrame_warning {{ background-color: {color_notif_warning_bg}; border: 1px solid {color_notif_warning_border}; }}
-            QFrame#NotifFrame_warning QLabel[objectName!="NotifTextLabel"] {{ color: {color_notif_warning_icon}; }}
-            QFrame#NotifFrame_warning QLabel#NotifTextLabel {{ color: {self.color_text_light}; }}
-            QFrame#NotifFrame_info {{ background-color: {color_notif_info_bg}; border: 1px solid {color_notif_info_border}; }}
-            QFrame#NotifFrame_info QLabel[objectName!="NotifTextLabel"] {{ color: {color_notif_info_icon}; }}
-            QFrame#NotifFrame_info QLabel#NotifTextLabel {{ color: {self.color_text_light}; }}
-            QFrame#NotifFrame_success {{ background-color: {color_notif_success_bg}; border: 1px solid {color_notif_success_border}; }}
-            QFrame#NotifFrame_success QLabel[objectName!="NotifTextLabel"] {{ color: {color_notif_success_icon}; }}
-            QFrame#NotifFrame_success QLabel#NotifTextLabel {{ color: {self.color_text_light}; }}
-
-            QPushButton[objectName^="NotifActionButton_"] {{ background-color: {color_notif_action_button_bg}; color: white; border-radius: 3px; font-size: 10pt; padding: 5px 10px; }}
-            QPushButton[objectName^="NotifActionButton_"]:hover {{ background-color: {color_notif_action_button_hover_bg}; }}
-            QPushButton#NotifActionButton_critical {{ background-color: {self.color_accent_red}; }}
-            QPushButton#NotifActionButton_critical:hover {{ background-color: {QColor(self.color_accent_red).lighter(110).name()}; }}
-
-            /* Estilos para QComboBox */
+            /* --- MENÚS DESPLEGABLES (QComboBox) --- */
             QComboBox {{
                 background-color: {self.color_combo_bg};
                 color: {self.color_combo_text};
                 border: 1px solid {self.color_combo_border};
-                padding: 5px 10px;
-                border-radius: 4px;
-                min-height: 25px; /* Ajusta según necesidad */
+                padding: 8px 12px;
+                border-radius: 6px;
+                font-size: 13px;
             }}
             QComboBox:hover {{
-                background-color: {self.color_combo_hover_bg};
-                border: 1px solid {QColor(self.color_combo_border).lighter(110).name() if QColor(self.color_combo_border).lightnessF() < 0.5 else QColor(self.color_combo_border).darker(110).name()};
-            }}
-            QComboBox:on {{ /* Estilo cuando el desplegable está abierto */
-                background-color: {self.color_combo_hover_bg};
-                border: 1px solid {self.color_accent_blue_link}; /* Usa tu color de acento para el borde abierto */
+                border-color: {self.color_accent_blue};
             }}
             QComboBox::drop-down {{
                 subcontrol-origin: padding;
                 subcontrol-position: top right;
-                width: 20px; /* Ajusta el ancho del área de la flecha */
+                width: 20px;
                 border-left-width: 1px;
                 border-left-color: {self.color_combo_border};
                 border-left-style: solid;
-                border-top-right-radius: 3px; /* Para que coincida con el border-radius del QComboBox */
-                border-bottom-right-radius: 3px;
             }}
-            /* QComboBox::down-arrow: Se deja para la flecha estándar de Qt por ahora */
-
-            QComboBox QListView {{ /* La lista desplegable, usando QListView */
+            QComboBox QAbstractItemView {{
                 background-color: {self.color_combo_bg};
+                border: 1px solid {self.color_accent_blue};
                 color: {self.color_combo_text};
-                border: 1px solid {self.color_accent_blue_link}; /* Borde cuando está abierto */
-                padding: 4px; 
-                outline: 0px; 
+                selection-background-color: {self.color_combo_item_selected_bg};
+                padding: 5px;
             }}
-            QComboBox QListView::item {{ 
-                background-color: transparent; /* Fondo del ítem transparente por defecto */
-                color: {self.color_combo_text}; 
-                min-height: 25px; 
-                padding: 0px 5px; 
+            
+            /* --- GRUPOS (QGroupBox) --- */
+            QGroupBox {{
+                font-weight: bold;
+                color: {self.color_text_light};
+                border: 1px solid {self.color_groupbox_border};
+                border-radius: 10px;
+                margin-top: 12px; 
+                padding: 10px;
+                padding-top: 28px;
+                background-color: {self.color_groupbox_bg};
             }}
-            QComboBox QListView::item:selected {{
-                background-color: {self.color_combo_item_selected_bg};
-                color: {self.color_combo_text}; 
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                subcontrol-position: top left;
+                left: 15px;
+                padding: 5px 15px;
+                border-radius: 5px;
+                color: white;
+                font-size: 14px;
+                background-color: {self.color_text_dark};
             }}
-            QComboBox QListView::item:hover {{
-                background-color: {QColor(self.color_combo_item_selected_bg).lighter(115).name() if QColor(self.color_combo_item_selected_bg).lightnessF() < 0.5 else QColor(self.color_combo_item_selected_bg).darker(115).name()};
-                color: {self.color_combo_text};
+            
+            /* --- PÁGINA DE ENTRENAMIENTO (SELECCIÓN) --- */
+            #TrainingOptionCard {{
+                background-color: {QColor(self.color_central_bg).lighter(115).name()};
+                border-radius: 15px;
+                border: 2px solid {self.color_groupbox_border};
             }}
-            /* Fin de estilos para QComboBox */
+            #TrainingOptionCard:hover {{ border: 2px solid {self.color_accent_blue}; }}
+            #CardMainButton[optionType="ml"] {{ background-color: {self.color_accent_blue}; }}
+            #CardMainButton[optionType="dl"] {{ background-color: {self.color_accent_red}; }}
+            #CardMainButton:hover {{ background-color: {QColor(self.color_accent_red).lighter(115).name()}; }}
+            #CardMainButton[optionType="ml"]:hover {{ background-color: {QColor(self.color_accent_blue).lighter(115).name()}; }}
+            #CardConfigButton {{
+                background-color: transparent;
+                color: {self.color_text_medium};
+                border: 1px solid {self.color_text_medium};
+                border-radius: 18px; font-size: 11pt; padding: 8px 18px;
+            }}
+            #CardConfigButton:hover {{ color: {self.color_text_light}; border: 1px solid {self.color_text_light}; }}
+            #CardDescriptionLabel {{ color: {self.color_text_medium}; font-size: 10pt; }}
+
+            /* --- PÁGINAS DE ENTRENAMIENTO ML y DL --- */
+            QGroupBox#ProfessionGroupML {{ border-color: {self.color_accent_blue}; }}
+            QGroupBox#ProfessionGroupML::title {{ background-color: {self.color_accent_blue}; }}
+            QGroupBox#TrainingGroupML {{ border-color: {self.color_accent_purple}; }}
+            QGroupBox#TrainingGroupML::title {{ background-color: {self.color_accent_purple}; }}
+            QGroupBox#LogGroupML {{ border-color: {self.color_accent_red}; }}
+            QGroupBox#LogGroupML::title {{ background-color: {self.color_accent_red}; }}
+            
+            QGroupBox#ProfessionGroupDL {{ border-color: {self.color_accent_green}; }}
+            QGroupBox#ProfessionGroupDL::title {{ background-color: {self.color_accent_green}; }}
+            QGroupBox#TrainingGroupDL {{ border-color: {self.color_accent_purple}; }}
+            QGroupBox#TrainingGroupDL::title {{ background-color: {self.color_accent_purple}; }}
+            QGroupBox#LogGroupDL {{ border-color: {self.color_accent_green}; }}
+            QGroupBox#LogGroupDL::title {{ background-color: {self.color_accent_green}; }}
+
+            #MLTrainingLog, #DLTrainingLog {{
+                font-family: "Consolas", "Courier New", monospace;
+                font-size: 11px;
+            }}
+            #DLEpochLabel {{
+                font-size: 14px; font-weight: bold; color: {self.color_accent_green};
+            }}
+            #DLMetricLabel {{ font-size: 12px; font-weight: bold; }}
+
+            /* --- PÁGINA CENTRO DE ACCIÓN --- */
+            #HeaderFrame {{ background-color: {self.color_groupbox_bg}; border-radius: 10px; padding: 5px; border: 1px solid {self.color_accent_blue}; }}
+            #HeaderFrame QLabel {{ color: {QColor(self.color_accent_blue).lighter(110).name()}; font-size: 24pt; }}
+            PulsingButton, #PulsingButton {{
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 {self.color_accent_blue}, stop:1 {QColor(self.color_accent_blue).darker(120).name()});
+                border-radius: 30px; font-size: 15px; padding: 10px;
+            }}
+            PulsingButton:hover, #PulsingButton:hover {{
+                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 {QColor(self.color_accent_blue).lighter(110).name()}, stop:1 {QColor(self.color_accent_blue).darker(110).name()});
+            }}
+            #ModelStatusCard[status="no_model"] {{
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #3A4750, stop:1 #303841);
+                border: 1px solid {self.color_accent_red}; border-radius: 10px;
+            }}
+            #ModelStatusCard[status="loaded"] {{
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 {self.color_accent_green}, stop:1 {QColor(self.color_accent_green).darker(120).name()});
+                border: 1px solid {QColor(self.color_accent_green).lighter(120).name()}; border-radius: 10px;
+            }}
+            #ModelStatusCard QLabel {{ color: white; }}
+            #selected_file_label[fileState="none"] {{
+                color: {self.color_text_dark}; background-color: {self.color_input_bg};
+                border: 1px dashed {self.color_text_dark}; border-radius: 6px; padding: 12px; min-height: 35px;
+            }}
+            #selected_file_label[fileState="selected"] {{
+                color: {self.color_accent_green}; background-color: {QColor(self.color_accent_green).lighter(180).name() if QColor(self.color_accent_green).lightnessF() > 0.5 else "rgba(39, 174, 96, 0.15)"};
+                border: 1px solid {self.color_accent_green}; border-radius: 6px; padding: 12px;
+            }}
+            QSplitter::handle {{ background: {self.color_groupbox_border}; width: 2px; }}
+            QSplitter::handle:hover {{ background: {self.color_accent_blue}; }}
+            
+            /* TABLAS (QTableWidget) */
+            QTableWidget {{
+                background-color: {self.color_table_bg}; color: {self.color_text_light};
+                border: 1px solid {self.color_table_header_bg}; border-radius: 6px;
+                gridline-color: {self.color_table_grid}; font-size: 11px;
+                alternate-background-color: {self.color_table_alt_bg};
+            }}
+            QTableWidget::item {{ padding: 7px; border-bottom: 1px solid {self.color_table_grid}; }}
+            QTableWidget::item:selected {{ background-color: {self.color_accent_orange}; color: white; }}
+            QHeaderView::section {{
+                background-color: {self.color_table_header_bg}; color: white;
+                padding: 7px; border: none; font-weight: bold; font-size: 12px;
+            }}
+            
+            /* --- PÁGINA DE MODELOS/HERRAMIENTAS --- */
+            #ModelCard {{
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #3A4750, stop:1 #303841);
+                border: 2px solid {self.color_groupbox_border}; border-radius: 15px; padding: 15px;
+            }}
+            #ModelCard:hover {{ border: 2px solid {self.color_accent_blue}; }}
+            QDialog#ModelInfoDialog {{
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 {self.color_dialog_bg_start}, stop:1 {self.color_dialog_bg_end});
+                border-radius: 10px;
+            }}
+            QFrame#InfoCard {{
+                background-color: {QColor(self.color_dialog_bg_end).lighter(105).name() if QColor(self.color_dialog_bg_end).lightnessF() < 0.5 else QColor(self.color_dialog_bg_end).darker(105).name()};
+                border: 1px solid {self.color_groupbox_border}; border-radius: 8px;
+            }}
+            QMenu {{
+                background-color: {self.color_combo_bg}; color: {self.color_text_light};
+                border: 1px solid {self.color_combo_border}; border-radius: 5px; padding: 5px;
+            }}
+            QMenu::item {{ padding: 8px 20px; border-radius: 3px; }}
+            QMenu::item:selected {{ background-color: {self.color_accent_blue}; }}
+
+            /* --- PÁGINA IMPORTAR/EXPORTAR --- */
+            QGroupBox#ImportGroup::title {{ background-color: {self.color_accent_blue}; }}
+            QGroupBox#ImportGroup {{ border-color: {self.color_accent_blue}; }}
+            QGroupBox#ExportGroup::title {{ background-color: {self.color_accent_red}; }}
+            QGroupBox#ExportGroup {{ border-color: {self.color_accent_red}; }}
+            QGroupBox#ManagementGroup::title {{ background-color: {self.color_accent_orange}; }}
+            QGroupBox#ManagementGroup {{ border-color: {self.color_accent_orange}; }}
+            #DropArea {{
+                border: 3px dashed {self.color_accent_blue};
+                border-radius: 12px;
+                background-color: {accent_blue_rgba};
+            }}
+            #DropArea QLabel {{
+                color: {self.color_accent_blue};
+            }}
+            
+            /* --- BARRAS DE PROGRESO --- */
+            QProgressBar {{
+                border: 1px solid {self.color_accent_green}; border-radius: 8px;
+                text-align: center; color: {self.color_text_light}; font-weight: bold;
+                background-color: {self.color_progressbar_bg};
+            }}
+            QProgressBar::chunk {{ background-color: {self.color_accent_green}; border-radius: 6px; }}
+
+            /* --- LISTAS --- */
+            QListWidget {{
+                background-color: {self.color_input_bg}; color: {self.color_text_light};
+                border: 1px solid {self.color_input_border}; border-radius: 5px;
+            }}
+            QListWidget::item:selected {{ background-color: {self.color_accent_blue}; color: white; }}
         """)
 
 
