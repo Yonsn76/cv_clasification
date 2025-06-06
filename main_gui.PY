@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QFrame, QToolBar, QSizePolicy,
     QStyle, QColorDialog, QInputDialog, QFontDialog, 
-    QStackedWidget
+    QStackedWidget, QMessageBox
 )
 from PyQt6.QtGui import (
     QColor, QBrush, QPen, QPainter, QFont, QAction, QIcon, QPixmap,
@@ -13,6 +13,10 @@ from PyQt6.QtGui import (
 from PyQt6.QtCore import Qt, QRectF, QSize, QPoint, QEvent, pyqtSignal
 from PyQt6.QtSvg import QSvgRenderer 
 from PyQt6.QtSvgWidgets import QSvgWidget 
+import webbrowser
+from PyQt6.QtWebEngineWidgets import QWebEngineView
+from PyQt6.QtWebEngineCore import QWebEnginePage
+from PyQt6.QtCore import QUrl
 
 
 # --- Importar las vistas desde sus archivos separados ---
@@ -20,6 +24,7 @@ from entrenar_vista import seleccion
 from vista_herramientas import VistaHerramientas
 from vista_centro_accion import VistaCentroAccion
 from vista_importar_exportar import VistaImportarExportar
+from models.model_manager import ModelManager, ModelMetadata # Añadido
 
 # --- Icon Resource Function ---
 def get_icon(icon_name_or_path, color_str=None): 
@@ -248,11 +253,68 @@ class CircularActualizarButton(QWidget):
         painter.drawText(QRectF(0, 0, widget_rect.width(), widget_rect.height()), Qt.AlignmentFlag.AlignCenter, self.text)
     def sizeHint(self): return QSize(220, 220)
 
+# --- Documentation Window ---
+class DocumentationWindow(QMainWindow):
+    """Ventana para mostrar la documentación HTML"""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Documentación - ClasificaTalento PRO")
+        self.setGeometry(100, 100, 1200, 800)
+
+        # Crear el widget web
+        self.web_view = QWebEngineView()
+        self.setCentralWidget(self.web_view)
+
+        # Barra de herramientas con botones de navegación
+        toolbar = QToolBar()
+        self.addToolBar(toolbar)
+
+        # Botones de navegación
+        back_action = QAction("⬅️ Atrás", self)
+        back_action.triggered.connect(self.web_view.back)
+        toolbar.addAction(back_action)
+
+        forward_action = QAction("➡️ Adelante", self)
+        forward_action.triggered.connect(self.web_view.forward)
+        toolbar.addAction(forward_action)
+
+        reload_action = QAction("🔄 Recargar", self)
+        reload_action.triggered.connect(self.web_view.reload)
+        toolbar.addAction(reload_action)
+
+        # Aplicar estilos
+        self.setStyleSheet("""
+            QMainWindow {
+                background-color: #252C33;
+            }
+            QToolBar {
+                background-color: #1E272E;
+                border: none;
+                padding: 5px;
+            }
+            QToolBar QToolButton {
+                background-color: transparent;
+                color: #E0E0E0;
+                border: none;
+                padding: 5px 10px;
+                margin: 0 2px;
+            }
+            QToolBar QToolButton:hover {
+                background-color: #3A4750;
+            }
+        """)
+
+    def load_documentation(self, doc_path):
+        """Carga el archivo de documentación HTML"""
+        self.web_view.setUrl(QUrl.fromLocalFile(doc_path))
+
 # --- Main Window ---
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         
+        self.model_manager = ModelManager() # Añadido
+
         self.app_font_family = QApplication.font().family()
         self.app_font_size_pt = QApplication.font().pointSize()
         if self.app_font_size_pt <= 0: self.app_font_size_pt = 10 
@@ -317,20 +379,11 @@ class MainWindow(QMainWindow):
         # Página 0: Inicio
         self.inicio_page_widget = QWidget() 
         self.inicio_page_widget.setObjectName("InicioPage")
-        inicio_page_layout = QVBoxLayout(self.inicio_page_widget)
-        inicio_page_layout.setContentsMargins(25, 15, 25, 15); inicio_page_layout.setSpacing(12)
+        self.inicio_page_layout = QVBoxLayout(self.inicio_page_widget) # Guardar referencia al layout
+        self.inicio_page_layout.setContentsMargins(25, 15, 25, 15); self.inicio_page_layout.setSpacing(12)
         
-        self.notification1_widget_inicio = QWidget(); notification1_layout_inicio = QHBoxLayout(self.notification1_widget_inicio); notification1_layout_inicio.setContentsMargins(0,0,0,0)
-        icon_label1_inicio = QLabel("✨"); icon_font = icon_label1_inicio.font(); icon_font.setPointSize(18); icon_label1_inicio.setFont(icon_font); icon_label1_inicio.setObjectName("notificationIcon")
-        text_label1_inicio = QLabel("Bienvenido a ClasificaTalento PRO. Selecciona una opción de la barra lateral."); text_label1_inicio.setObjectName("notificationText")
-        notification1_layout_inicio.addWidget(icon_label1_inicio); notification1_layout_inicio.addWidget(text_label1_inicio); notification1_layout_inicio.addStretch()
-        
-        self.actualizar_button_inicio = CircularActualizarButton(accent_color_hex=self.color_accent_red) 
+        self._crear_contenido_inicio() # Llamada a la nueva función
 
-        inicio_page_layout.addWidget(self.notification1_widget_inicio)
-        inicio_page_layout.addStretch(1)
-        inicio_page_layout.addWidget(self.actualizar_button_inicio, 0, Qt.AlignmentFlag.AlignCenter)
-        inicio_page_layout.addStretch(1)
         self.central_stacked_widget.addWidget(self.inicio_page_widget)
 
         # Página 1: Entrenamiento
@@ -359,17 +412,26 @@ class MainWindow(QMainWindow):
 
         if self.sidebar_buttons: self.setActiveSidebarButton(self.sidebar_buttons[0])
 
-        self.right_toolbar = QToolBar("Barra de Herramientas Derecha"); self.right_toolbar.setOrientation(Qt.Orientation.Vertical); self.right_toolbar.setIconSize(QSize(20,20))
-        try: self.addToolBar(Qt.ToolBarArea.RightToolBarArea, self.right_toolbar)
-        except Exception as e: print(f"Could not add toolbar directly: {e}.")
-        action_pc = QAction(get_icon("pc"),"Documentación",self); action_windows = QAction(get_icon("windows"),"Windows",self)
-        action_joystick = QAction(get_icon("joystick"),"Juegos",self); action_dots = QAction(get_icon("dots"),"Más",self)
+        self.right_toolbar = QToolBar("Barra de Herramientas Derecha")
+        self.right_toolbar.setOrientation(Qt.Orientation.Vertical)
+        self.right_toolbar.setIconSize(QSize(20,20))
+        try:
+            self.addToolBar(Qt.ToolBarArea.RightToolBarArea, self.right_toolbar)
+        except Exception as e:
+            print(f"Could not add toolbar directly: {e}.")
 
-        # Conectar la acción PC con la documentación
-        action_pc.triggered.connect(self.open_documentation)
-        action_pc.setToolTip("Abrir documentación del sistema")
+        # Crear acciones para la barra de herramientas
+        action_docs = QAction(get_icon("pc"), "Documentación", self)
+        action_docs.triggered.connect(self.open_documentation)
+        action_windows = QAction(get_icon("windows"), "Windows", self)
+        action_joystick = QAction(get_icon("joystick"), "Juegos", self)
+        action_dots = QAction(get_icon("dots"), "Más", self)
 
-        self.right_toolbar.addAction(action_pc); self.right_toolbar.addAction(action_windows); self.right_toolbar.addAction(action_joystick); self.right_toolbar.addAction(action_dots)
+        # Agregar acciones a la barra de herramientas
+        self.right_toolbar.addAction(action_docs)
+        self.right_toolbar.addAction(action_windows)
+        self.right_toolbar.addAction(action_joystick)
+        self.right_toolbar.addAction(action_dots)
         
         self.apply_stylesheet()
 
@@ -528,23 +590,139 @@ class MainWindow(QMainWindow):
             if self.app_font_size_pt <= 0 : self.app_font_size_pt = 10 
             self.apply_stylesheet(); self.update_dependent_widgets_color()
             
-    def open_documentation(self):
-        """Abre la ventana de documentación del sistema"""
-        try:
-            # Crear y mostrar la ventana de documentación
-            self.documentation_dialog = DocumentationDialog(self)
-            self.documentation_dialog.show()
-        except Exception as e:
-            print(f"Error al abrir la documentación: {e}")
-
     def update_dependent_widgets_color(self):
-        if hasattr(self, 'actualizar_button_inicio'): 
-            self.actualizar_button_inicio.set_accent_color(self.color_accent_red)
+        # Eliminada la referencia a self.actualizar_button_inicio
         if hasattr(self, 'title_bar') and hasattr(self.title_bar, 'btn_theme'):
             self.title_bar.btn_theme.setIcon(get_icon("paintbrush", color_str=self.color_text_light))
+        
+        # Actualizar colores de la vista de inicio si existen los widgets
+        if hasattr(self, 'titulo_inicio_label'):
+            self.titulo_inicio_label.setStyleSheet(f"color: {self.color_text_light}; font-size: 20pt; font-weight: bold;")
+        if hasattr(self, 'info_total_label'):
+            self.info_total_label.setStyleSheet(f"color: {self.color_text_medium}; font-size: 12pt;")
+        if hasattr(self, 'info_ml_label'):
+            self.info_ml_label.setStyleSheet(f"color: {self.color_text_medium}; font-size: 12pt;")
+        if hasattr(self, 'info_dl_label'):
+            self.info_dl_label.setStyleSheet(f"color: {self.color_text_medium}; font-size: 12pt;")
+        if hasattr(self, 'subtitulo_recientes_label'):
+            self.subtitulo_recientes_label.setStyleSheet(f"color: {self.color_text_light}; font-size: 14pt; font-weight: bold; margin-top: 15px;")
+        
+        # Actualizar color de acento en botones de la barra lateral
         for btn in self.sidebar_buttons:
             is_active = btn.property("active") == "true"
             btn.set_active(is_active, self.color_accent_red)
+            
+    def _crear_contenido_inicio(self):
+        # Limpiar layout anterior si existe
+        while self.inicio_page_layout.count():
+            child = self.inicio_page_layout.takeAt(0)
+            if child.widget():
+                child.widget().deleteLater()
+
+        # Título Principal
+        self.titulo_inicio_label = QLabel("Bienvenido a ClasificaTalento PRO")
+        self.titulo_inicio_label.setObjectName("InicioTituloPrincipal")
+        self.titulo_inicio_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.titulo_inicio_label.setStyleSheet(f"color: {self.color_text_light}; font-size: 20pt; font-weight: bold; margin-bottom: 20px;")
+        self.inicio_page_layout.addWidget(self.titulo_inicio_label)
+
+        # Contenedor para estadísticas
+        stats_frame = QFrame()
+        stats_frame.setObjectName("InicioStatsFrame")
+        stats_layout = QVBoxLayout(stats_frame)
+        stats_layout.setSpacing(8)
+        
+        todos_los_modelos = self.model_manager.list_available_models()
+        num_total_modelos = len(todos_los_modelos)
+        num_ml_modelos = sum(1 for m in todos_los_modelos if not m.is_deep_learning)
+        num_dl_modelos = sum(1 for m in todos_los_modelos if m.is_deep_learning)
+
+        self.info_total_label = QLabel(f"📊 Total de Modelos Entrenados: {num_total_modelos}")
+        self.info_total_label.setObjectName("InicioInfoLabel")
+        self.info_total_label.setStyleSheet(f"color: {self.color_text_medium}; font-size: 12pt;")
+        stats_layout.addWidget(self.info_total_label)
+
+        self.info_ml_label = QLabel(f"🧠 Modelos de Machine Learning: {num_ml_modelos}")
+        self.info_ml_label.setObjectName("InicioInfoLabel")
+        self.info_ml_label.setStyleSheet(f"color: {self.color_text_medium}; font-size: 12pt;")
+        stats_layout.addWidget(self.info_ml_label)
+
+        self.info_dl_label = QLabel(f"💡 Modelos de Deep Learning: {num_dl_modelos}")
+        self.info_dl_label.setObjectName("InicioInfoLabel")
+        self.info_dl_label.setStyleSheet(f"color: {self.color_text_medium}; font-size: 12pt;")
+        stats_layout.addWidget(self.info_dl_label)
+        
+        stats_frame.setStyleSheet(f"""
+            #InicioStatsFrame {{
+                background-color: {self.color_groupbox_bg};
+                border-radius: 10px;
+                padding: 15px;
+                border: 1px solid {self.color_groupbox_border};
+            }}
+        """)
+        self.inicio_page_layout.addWidget(stats_frame)
+        self.inicio_page_layout.addSpacing(20)
+
+
+        # Subtítulo para modelos recientes
+        self.subtitulo_recientes_label = QLabel("🚀 Últimos Modelos Entrenados:")
+        self.subtitulo_recientes_label.setObjectName("InicioSubtituloRecientes")
+        self.subtitulo_recientes_label.setStyleSheet(f"color: {self.color_text_light}; font-size: 14pt; font-weight: bold; margin-top: 15px;")
+        self.inicio_page_layout.addWidget(self.subtitulo_recientes_label)
+
+        # Contenedor para la lista de modelos recientes
+        self.modelos_recientes_frame = QFrame()
+        self.modelos_recientes_frame.setObjectName("InicioModelosRecientesFrame")
+        self.modelos_recientes_layout = QVBoxLayout(self.modelos_recientes_frame)
+        self.modelos_recientes_layout.setSpacing(10)
+        
+        # Mostrar hasta 5 modelos más recientes
+        modelos_a_mostrar = todos_los_modelos[:5]
+
+        if not modelos_a_mostrar:
+            no_models_label = QLabel("No hay modelos entrenados todavía.")
+            no_models_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            no_models_label.setStyleSheet(f"color: {self.color_text_dark}; font-style: italic; font-size: 11pt;")
+            self.modelos_recientes_layout.addWidget(no_models_label)
+        else:
+            for i, model_meta in enumerate(modelos_a_mostrar):
+                model_card = QFrame()
+                model_card.setObjectName(f"InicioModelCard_{i}")
+                model_card_layout = QVBoxLayout(model_card)
+
+                nombre_modelo = QLabel(f"{model_meta.display_name} ({'DL' if model_meta.is_deep_learning else 'ML'})")
+                nombre_modelo.setStyleSheet(f"font-weight: bold; font-size: 11pt; color: {self.color_text_light};")
+                
+                tipo_modelo = QLabel(f"Tipo: {model_meta.model_type}")
+                tipo_modelo.setStyleSheet(f"font-size: 9pt; color: {self.color_text_medium};")
+                
+                fecha_creacion = QLabel(f"Creado: {model_meta.creation_date}")
+                fecha_creacion.setStyleSheet(f"font-size: 9pt; color: {self.color_text_medium};")
+                
+                accuracy_text = f"Precisión: {model_meta.accuracy:.1%}" if model_meta.accuracy > 0 else "Precisión: N/A"
+                precision_modelo = QLabel(accuracy_text)
+                precision_modelo.setStyleSheet(f"font-size: 9pt; color: {self.color_accent_green if model_meta.accuracy > 0 else self.color_text_dark};")
+
+                model_card_layout.addWidget(nombre_modelo)
+                model_card_layout.addWidget(tipo_modelo)
+                model_card_layout.addWidget(fecha_creacion)
+                model_card_layout.addWidget(precision_modelo)
+                
+                model_card.setStyleSheet(f"""
+                    #{model_card.objectName()} {{
+                        background-color: {QColor(self.color_central_bg).lighter(110).name()};
+                        border: 1px solid {self.color_groupbox_border};
+                        border-radius: 8px;
+                        padding: 10px;
+                    }}
+                    #{model_card.objectName()}:hover {{
+                        border-color: {self.color_accent_blue};
+                    }}
+                """)
+                self.modelos_recientes_layout.addWidget(model_card)
+        
+        self.inicio_page_layout.addWidget(self.modelos_recientes_frame)
+        self.inicio_page_layout.addStretch(1) # Empujar todo hacia arriba
 
     def handle_sidebar_button_click(self):
         clicked_button = self.sender()
@@ -869,6 +1047,20 @@ class MainWindow(QMainWindow):
             }}
             QListWidget::item:selected {{ background-color: {self.color_accent_blue}; color: white; }}
         """)
+
+    def open_documentation(self):
+        """Abre la documentación HTML en una ventana dentro de la aplicación"""
+        try:
+            doc_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "docs", "documentation.html")
+            if os.path.exists(doc_path):
+                # Crear y mostrar la ventana de documentación
+                self.doc_window = DocumentationWindow(self)
+                self.doc_window.load_documentation(doc_path)
+                self.doc_window.show()
+            else:
+                QMessageBox.warning(self, "Error", "No se encuentra el archivo de documentación.")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Error al abrir la documentación: {str(e)}")
 
 
 if __name__ == '__main__':

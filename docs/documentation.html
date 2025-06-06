@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Documentación Técnica | Sistema de Clasificación de CVs</title>
+    
+    <!-- GSAP (GreenSock Animation Platform) y ScrollTrigger Plugin -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <style>
+        /* --- VARIABLES GLOBALES Y RESET --- */
+        :root {
+            --c-bg: #0B1120;
+            --c-bg-sidebar: rgba(17, 24, 39, 0.7);
+            --c-text-primary: #f9fafb;
+            --c-text-secondary: #9ca3af;
+            --c-border: rgba(55, 65, 81, 0.5);
+            --c-accent: #38bdf8;
+            --c-accent-hover: #7dd3fc;
+            --c-prose: #9ca3af;
+            --c-code-bg: #1f2937;
+            --ff-sans: 'Inter', sans-serif;
+            --ff-mono: 'JetBrains Mono', monospace;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--ff-sans);
+            background-color: var(--c-bg);
+            color: var(--c-text-secondary);
+            overflow-y: scroll;
+        }
+        
+        /* --- EFECTO DE FONDO Y BARRA DE SCROLL --- */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at var(--x, 50%) var(--y, 50%), rgba(45, 128, 204, 0.15), transparent 40%);
+            z-index: -1;
+            pointer-events: none;
+            transition: transform 0.2s ease-out;
+        }
+
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #111827; }
+        ::-webkit-scrollbar-thumb { background-color: #374151; border-radius: 10px; border: 2px solid #111827; }
+        ::-webkit-scrollbar-thumb:hover { background-color: #4b5563; }
+
+        /* --- LAYOUT PRINCIPAL --- */
+        .container {
+            display: flex;
+        }
+
+        #left-sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            width: 256px; /* w-64 */
+            background-color: var(--c-bg-sidebar);
+            backdrop-filter: blur(4px);
+            border-right: 1px solid var(--c-border);
+            padding: 1.5rem; /* p-6 */
+            display: flex;
+            flex-direction: column;
+        }
+
+        main {
+            width: 100%;
+            padding-left: 256px; /* lg:pl-64 */
+            padding-right: 288px; /* lg:pr-72 */
+        }
+        
+        .main-content {
+            max-width: 896px; /* max-w-3xl */
+            margin-left: auto;
+            margin-right: auto;
+            padding: 3rem 1.5rem; /* p-6 lg:p-12 */
+        }
+
+        #right-sidebar {
+            position: fixed;
+            top: 0;
+            right: 0;
+            height: 100vh;
+            width: 288px; /* w-72 */
+            padding: 1.5rem; /* p-6 */
+            display: block;
+        }
+
+        /* --- TIPOGRAFÍA Y ESTILOS DE "PROSE" --- */
+        article h1, article h2, article h3 { color: var(--c-text-primary); font-weight: 700; letter-spacing: -0.025em; }
+        article h1 { font-size: 3rem; margin-bottom: 1.5rem; }
+        article h2 { font-size: 2.25rem; margin-top: 2rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--c-border); margin-bottom: 1rem;}
+        article h3 { font-size: 1.5rem; margin-top: 1.5rem; margin-bottom: 1rem; }
+        article p, article li { line-height: 1.75; color: var(--c-prose); margin-bottom: 1.25rem; }
+        article a { color: var(--c-accent); text-decoration: none; }
+        article a:hover { text-decoration: underline; }
+        article strong { color: #e5e7eb; font-weight: 600; }
+        article ul { list-style-position: inside; padding-left: 1rem; }
+        article code {
+            font-family: var(--ff-mono);
+            background-color: var(--c-code-bg);
+            border: 1px solid #374151;
+            border-radius: 0.375rem;
+            padding: 0.25rem 0.5rem;
+            font-size: 0.9em;
+            color: #a5b4fc;
+        }
+        article pre {
+            background-color: var(--c-code-bg);
+            border: 1px solid #374151;
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            overflow-x: auto;
+        }
+        article pre code { border: none; padding: 0; background: none; }
+
+        /* --- COMPONENTES --- */
+        .logo { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 2rem; }
+        .logo svg { width: 2rem; height: 2rem; color: var(--c-accent); }
+        .logo span { font-size: 1.25rem; font-weight: 700; color: var(--c-text-primary); }
+
+        #main-nav ul, #page-nav ul { list-style: none; }
+        #main-nav li, #page-nav li { margin-bottom: 0.5rem; }
+        
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.375rem;
+            color: var(--c-text-secondary);
+            text-decoration: none;
+            transition: background-color 0.2s, color 0.2s;
+        }
+        .nav-link:hover { background-color: #1f2937; color: var(--c-text-primary); }
+        .nav-link.active { color: var(--c-accent); background-color: rgba(56, 189, 248, 0.1); }
+        .nav-link span { width: 0.5rem; height: 0.5rem; border-radius: 9999px; background-color: #4b5563; transition: background-color 0.2s; }
+        .nav-link.active span { background-color: var(--c-accent); }
+
+        #right-sidebar .nav-wrapper { margin-top: 6rem; }
+        #right-sidebar h4 { font-size: 0.875rem; font-weight: 600; color: var(--c-text-primary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 1rem; }
+        
+        .page-nav-link {
+            display: block;
+            padding-left: 1rem;
+            border-left: 2px solid #374151;
+            font-size: 0.875rem;
+            color: var(--c-text-secondary);
+            text-decoration: none;
+            padding-top: 0.25rem;
+            padding-bottom: 0.25rem;
+            transition: color 0.2s, border-color 0.2s;
+        }
+        .page-nav-link:hover { color: var(--c-text-primary); border-left-color: #6b7280; }
+        .page-nav-link.active { color: var(--c-accent); border-left-color: var(--c-accent); font-weight: 500; }
+
+        /* Tabla */
+        table { width: 100%; border-collapse: collapse; margin: 2rem 0; border: 1px solid var(--c-border); border-radius: 0.5rem; overflow: hidden; }
+        th, td { padding: 1rem 1.5rem; text-align: left; font-size: 0.875rem; border-bottom: 1px solid var(--c-border); }
+        th { background-color: rgba(31, 41, 55, 0.5); color: #d1d5db; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.05em; }
+        tr:last-child td { border-bottom: none; }
+        td code { font-size: 0.85em; }
+        
+        /* Cita */
+        blockquote { border-left: 4px solid var(--c-accent); margin: 1.5rem 0; padding: 1rem 1.5rem; background-color: #111827; border-top-right-radius: 0.5rem; border-bottom-right-radius: 0.5rem; }
+        blockquote p { margin-bottom: 0; }
+        
+        /* Botón Gemini */
+        .gemini-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 1rem;
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #a5b4fc;
+            background-color: rgba(79, 70, 229, 0.1);
+            border: 1px solid rgba(79, 70, 229, 0.3);
+            border-radius: 0.5rem;
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+        }
+        .gemini-button:hover { background-color: rgba(79, 70, 229, 0.2); border-color: rgba(99, 102, 241, 0.5); color: #c7d2fe; }
+
+        /* Modal */
+        #gemini-modal {
+            position: fixed;
+            inset: 0;
+            background-color: rgba(0,0,0,0.6);
+            backdrop-filter: blur(4px);
+            z-index: 50;
+            display: none; /* Cambiado a 'flex' por JS */
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        #gemini-modal.visible { display: flex; opacity: 1; }
+        #modal-content {
+            background-color: #111827;
+            border: 1px solid var(--c-border);
+            border-radius: 0.75rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            width: 100%;
+            max-width: 896px; /* max-w-3xl */
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            transform: scale(0.95);
+            transition: transform 0.3s ease;
+        }
+        #gemini-modal.visible #modal-content { transform: scale(1); }
+        
+        #modal-header { display: flex; align-items: center; justify-content: space-between; padding: 1rem; border-bottom: 1px solid var(--c-border); flex-shrink: 0; }
+        #modal-title { font-size: 1.125rem; font-weight: 600; color: var(--c-text-primary); }
+        #modal-close { background: none; border: none; color: var(--c-text-secondary); font-size: 1.75rem; line-height: 1; cursor: pointer; }
+        #modal-close:hover { color: var(--c-text-primary); }
+        #modal-body { padding: 1.5rem; overflow-y: auto; }
+        #modal-response { line-height: 1.75; }
+
+        /* Loader */
+        #modal-loader { display: none; justify-content: center; align-items: center; min-height: 12rem; flex-direction: column; }
+        #modal-loader .dots-container { display: flex; gap: 0.5rem; }
+        #modal-loader .dot { width: 10px; height: 10px; background-color: var(--c-accent); border-radius: 50%; animation: bounce 1.4s infinite ease-in-out both; }
+        #modal-loader .dot:nth-child(1) { animation-delay: -0.32s; }
+        #modal-loader .dot:nth-child(2) { animation-delay: -0.16s; }
+        #modal-loader p { margin-top: 1rem; color: var(--c-text-secondary); }
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1.0); }
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            #left-sidebar, #right-sidebar { display: none; }
+            main { padding: 0; }
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- Barra lateral izquierda -->
+        <aside id="left-sidebar">
+            <div class="logo">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M7 17L4 20M4 20L1 17M4 20V12.5M12.5 4H20M20 4V11.5M20 4L11.5 12.5M7 7.5V4H9.5M7 7.5L4 10.5M7 7.5L12 12.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span>Clasificador CVs</span>
+            </div>
+            <nav id="main-nav">
+                <ul></ul>
+            </nav>
+        </aside>
+
+        <!-- Contenido principal -->
+        <main>
+            <div class="main-content">
+                <article>
+                    <section id="introduccion" class="content-section">
+                        <h1>Documentación Técnica</h1>
+                        <p>Este documento proporciona una descripción técnica exhaustiva del Sistema de Clasificación de CVs, una aplicación de escritorio diseñada para la categorización automática de currículums mediante técnicas de Procesamiento del Lenguaje Natural (PLN).</p>
+                    </section>
+
+                    <section id="arquitectura" class="content-section">
+                        <h2>Arquitectura del Sistema</h2>
+                        <p>El proyecto se fundamenta en una arquitectura modular que disocia la lógica de la interfaz de usuario de los componentes de backend y modelado.</p>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Componente</th>
+                                    <th>Descripción Técnica</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr><td><code>main_gui.py</code></td><td>Punto de entrada. Orquesta la GUI principal construida con PyQt6.</td></tr>
+                                <tr><td><code>vista_*.py</code></td><td>Módulos que definen los widgets y la lógica de los paneles de la GUI.</td></tr>
+                                <tr><td><code>/models</code></td><td>Núcleo del sistema. Contiene los clasificadores, la lógica de preprocesamiento y la gestión de modelos.</td></tr>
+                                <tr><td><code>/entrenamiento_vistas</code></td><td>Interfaces de usuario específicas para el módulo de entrenamiento de modelos.</td></tr>
+                                <tr><td><code>/src/config</code></td><td>Configuraciones centralizadas, incluyendo la gestión de rutas de directorios.</td></tr>
+                                <tr><td><code>/saved_models</code></td><td>Almacenamiento de modelos de ML serializados (Scikit-learn).</td></tr>
+                                <tr><td><code>/saved_deep_models</code></td><td>Almacenamiento de modelos de DL (Keras/TensorFlow) y caché de Transformers.</td></tr>
+                            </tbody>
+                        </table>
+                    </section>
+
+                    <section id="modelos-ml" class="content-section">
+                        <h2>Modelos de Machine Learning</h2>
+                        <p>Esta suite de modelos implementa algoritmos de clasificación clásicos. Utilizan <code>TfidfVectorizer</code> para la conversión de texto a vectores de características, una técnica que pondera la frecuencia de los términos ajustada por su frecuencia en el corpus.</p>
+                        <h3>Configuración de Vectorización</h3>
+                        <p>El vectorizador está configurado para capturar unigramas y bigramas, limitando el espacio de características a los 5000 términos más relevantes para optimizar el rendimiento.</p>
+                        <h3>Algoritmos Implementados</h3>
+                        <ul>
+                            <li><strong>Random Forest:</strong> Un clasificador de ensamblaje que mitiga el sobreajuste mediante la construcción de múltiples árboles de decisión. Configurado con 100 estimadores y una profundidad máxima de 10 niveles.<br><button class="gemini-button" data-prompt-type="code" data-context="Random Forest Classifier">Generar Ejemplo de Código</button></li>
+                            <li><strong>Support Vector Machine (SVM):</strong> Emplea un kernel de base radial (RBF) para encontrar un hiperplano óptimo de separación en un espacio de características de alta dimensión. La parametrización de probabilidad está habilitada.<br><button class="gemini-button" data-prompt-type="code" data-context="SVM Classifier">Generar Ejemplo de Código</button></li>
+                            <li><strong>Regresión Logística:</strong> Un modelo lineal robusto y eficiente, utilizado como una sólida línea de base para tareas de clasificación de texto.<br><button class="gemini-button" data-prompt-type="code" data-context="Logistic Regression Classifier">Generar Ejemplo de Código</button></li>
+                             <li><strong>Naive Bayes Multinomial:</strong> Un clasificador probabilístico basado en el teorema de Bayes, especialmente eficaz para características discretas derivadas del recuento de palabras.<br><button class="gemini-button" data-prompt-type="code" data-context="Multinomial Naive Bayes">Generar Ejemplo de Código</button></li>
+                        </ul>
+                    </section>
+                    
+                    <section id="modelos-dl" class="content-section">
+                        <h2>Modelos de Deep Learning</h2>
+                        <p>Estos modelos avanzados emplean arquitecturas de redes neuronales profundas para capturar dependencias semánticas y contextuales complejas en el texto.</p>
+                        
+                        <h3>LSTM Bidireccional</h3>
+                        <p>Esta red neuronal recurrente procesa secuencias de texto en ambas direcciones (de principio a fin y viceversa), lo que le permite capturar dependencias contextuales a largo plazo. La arquitectura apila capas de Embedding, LSTM bidireccionales y capas densas con regularización Dropout para evitar el sobreajuste.</p>
+                        <div>
+                            <button class="gemini-button" data-prompt-type="explain" data-context="LSTM Bidireccional para PNL">Explicar Concepto</button>
+                            <button class="gemini-button" data-prompt-type="code" data-context="Bidirectional LSTM for text classification">Generar Ejemplo de Código</button>
+                        </div>
+                        
+                        <h3>Red Neuronal Convolucional (CNN)</h3>
+                        <p>Adaptada para PNL, esta arquitectura utiliza filtros convolucionales para extraer características locales (n-gramas) del texto. Una capa de <code>GlobalMaxPooling1D</code> agrega estas características para producir un vector de clasificación final. Es un modelo computacionalmente eficiente y potente para la clasificación de documentos.</p>
+                         <div>
+                            <button class="gemini-button" data-prompt-type="explain" data-context="CNN para PNL">Explicar Concepto</button>
+                            <button class="gemini-button" data-prompt-type="code" data-context="CNN for text classification">Generar Ejemplo de Código</button>
+                        </div>
+
+                        <h3>BERT (Bidirectional Encoder Representations from Transformers)</h3>
+                        <p>Implementación del modelo Transformer pre-entrenado <code>dccuchile/bert-base-spanish-wwm-uncased</code>. Se utiliza la técnica de fine-tuning, donde las representaciones contextuales de alto nivel generadas por BERT se conectan a una capa de clasificación final. Este enfoque aprovecha el conocimiento lingüístico masivo del modelo pre-entrenado para lograr una precisión de vanguardia.</p>
+                        <div>
+                            <button class="gemini-button" data-prompt-type="explain" data-context="BERT fine-tuning">Explicar Concepto</button>
+                            <button class="gemini-button" data-prompt-type="code" data-context="BERT fine-tuning for text classification">Generar Ejemplo de Código</button>
+                        </div>
+                    </section>
+
+                    <section id="entrenamiento" class="content-section">
+                        <h2>Proceso de Entrenamiento</h2>
+                        <p>El sistema incluye un módulo de entrenamiento que extrae texto de archivos PDF organizados por categorías para construir y validar modelos personalizados.</p>
+                        <h3>Estructura del Conjunto de Datos</h3>
+                        <p>Se requiere una estructura de directorios donde cada subdirectorio representa una clase (profesión) y contiene los CVs en formato PDF correspondientes.</p>
+                        <pre><code class="language-bash">/dataset/
+  ├── Ingenieria_Software/
+  │   └── cv_01.pdf
+  └── Diseno_UX/
+      └── cv_02.pdf
+</code></pre>
+                    </section>
+
+                    <section id="requerimientos" class="content-section">
+                        <h2>Requerimientos Técnicos</h2>
+                        <h3>Software y Dependencias</h3>
+                        <ul>
+                            <li><strong>Python:</strong> 3.8 o superior (se recomienda 3.9+).</li>
+                            <li><strong>PyQt6:</strong> Para la interfaz gráfica de usuario.</li>
+                            <li><strong>Scikit-learn:</strong> Para los modelos de Machine Learning.</li>
+                            <li><strong>TensorFlow:</strong> Versión 2.8 o superior para los modelos de Deep Learning.</li>
+                            <li><strong>Transformers:</strong> Para la utilización de modelos como BERT.</li>
+                            <li><strong>PyPDF2:</strong> Para la extracción de texto de documentos PDF.</li>
+                            <li><strong>Pandas & NumPy:</strong> Para la manipulación de datos.</li>
+                        </ul>
+                         <h3>Hardware</h3>
+                        <blockquote>
+                            <p><strong>Soporte de GPU (Recomendado para DL):</strong> Para un rendimiento óptimo en el entrenamiento de modelos de Deep Learning, se recomienda una GPU NVIDIA compatible con CUDA. Asegúrese de que las versiones de CUDA y cuDNN instaladas en el sistema sean compatibles con su versión de TensorFlow.</p>
+                        </blockquote>
+                        <ul>
+                            <li><strong>CPU:</strong> Intel Core i5 / AMD Ryzen 5 (4 núcleos o más).</li>
+                            <li><strong>RAM:</strong> 8 GB (mínimo), 16 GB o más (recomendado para Deep Learning).</li>
+                            <li><strong>Almacenamiento:</strong> 5 GB de espacio libre para modelos y datasets.</li>
+                        </ul>
+                    </section>
+                </article>
+            </div>
+        </main>
+
+        <!-- Barra lateral derecha -->
+        <aside id="right-sidebar">
+            <div class="nav-wrapper">
+                <h4>En esta página</h4>
+                <nav id="page-nav">
+                    <ul></ul>
+                </nav>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Modal para respuestas de Gemini -->
+    <div id="gemini-modal">
+        <div id="modal-content">
+            <div id="modal-header">
+                <h3 id="modal-title"></h3>
+                <button id="modal-close">&times;</button>
+            </div>
+            <div id="modal-body">
+                <div id="modal-loader">
+                    <div class="dots-container">
+                       <div class="dot"></div>
+                       <div class="dot"></div>
+                       <div class="dot"></div>
+                    </div>
+                    <p>Generando respuesta...</p>
+                </div>
+                <div id="modal-response"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- INICIALIZACIÓN BÁSICA DE LA INTERFAZ ---
+            const mainNav = document.getElementById('main-nav').querySelector('ul');
+            const pageNav = document.getElementById('page-nav').querySelector('ul');
+            const sections = document.querySelectorAll('.content-section');
+            const mainNavLinksData = [
+                { href: '#introduccion', text: 'Introducción' }, { href: '#arquitectura', text: 'Arquitectura' },
+                { href: '#modelos-ml', text: 'Modelos ML' }, { href: '#modelos-dl', text: 'Modelos DL' },
+                { href: '#entrenamiento', text: 'Entrenamiento' }, { href: '#requerimientos', text: 'Requerimientos' }
+            ];
+            mainNavLinksData.forEach(link => {
+                mainNav.innerHTML += `<li><a href="${link.href}" class="nav-link"><span></span> ${link.text}</a></li>`;
+                pageNav.innerHTML += `<li><a href="${link.href}" class="page-nav-link">${link.text}</a></li>`;
+            });
+
+            // --- ANIMACIONES Y SCROLL CON GSAP ---
+            const body = document.body;
+            window.addEventListener('mousemove', (e) => { gsap.to(body, { '--x': `${e.clientX}px`, '--y': `${e.clientY}px`, duration: 0.5, ease: 'sine.out' }); });
+            if (window.innerWidth > 1024) {
+                gsap.from("#left-sidebar, #right-sidebar", { x: (i) => i === 0 ? -50 : 50, opacity: 0, duration: 0.8, ease: "power3.out" });
+                gsap.from("#main-nav li", { x: -20, opacity: 0, duration: 0.5, ease: "power2.out", stagger: 0.1, delay: 0.4 });
+                gsap.from("#page-nav li", { x: 20, opacity: 0, duration: 0.5, ease: "power2.out", stagger: 0.1, delay: 0.6 });
+            }
+            gsap.registerPlugin(ScrollTrigger);
+            const allMainNavLinks = mainNav.querySelectorAll('a');
+            const allPageNavLinks = pageNav.querySelectorAll('a');
+            sections.forEach((section) => {
+                gsap.from(section, { opacity: 0, y: 50, duration: 0.8, scrollTrigger: { trigger: section, start: 'top 80%', toggleActions: 'play none none none' } });
+                ScrollTrigger.create({
+                    trigger: section, start: "top center", end: "bottom center",
+                    onToggle: self => {
+                        if (self.isActive) {
+                            const id = section.getAttribute('id');
+                            allMainNavLinks.forEach(l => l.classList.toggle('active', l.getAttribute('href') === `#${id}`));
+                            allPageNavLinks.forEach(l => l.classList.toggle('active', l.getAttribute('href') === `#${id}`));
+                        }
+                    }
+                });
+            });
+            document.querySelectorAll('a[href^="#"]').forEach(a => a.addEventListener('click', function(e) { e.preventDefault(); document.querySelector(this.getAttribute('href')).scrollIntoView({ behavior: 'smooth' }); }));
+
+            // --- LÓGICA DE LA API DE GEMINI Y EL MODAL ---
+            const modal = document.getElementById('gemini-modal');
+            const modalClose = document.getElementById('modal-close');
+            const modalTitle = document.getElementById('modal-title');
+            const modalLoader = document.getElementById('modal-loader');
+            const modalResponse = document.getElementById('modal-response');
+            
+            const showModal = () => { modal.classList.add('visible'); };
+            const hideModal = () => { modal.classList.remove('visible'); };
+
+            modalClose.addEventListener('click', hideModal);
+            modal.addEventListener('click', (e) => { if (e.target === modal) hideModal(); });
+
+            const callGemini = async (prompt) => {
+                const apiKey = "AIzaSyBaVxWb1DbYHIe_qIheXq_baw5RY1YNVQA"; // La clave de API es manejada por el entorno
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+                
+                const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }] };
+
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (!response.ok) throw new Error(`API error: ${response.statusText}`);
+                    const result = await response.json();
+                    
+                    if (result.candidates && result.candidates.length > 0 && result.candidates[0].content.parts[0].text) {
+                        return result.candidates[0].content.parts[0].text;
+                    } else {
+                        throw new Error("No se recibió una respuesta válida del modelo.");
+                    }
+                } catch (error) {
+                    console.error("Error al llamar a la API de Gemini:", error);
+                    return `Lo siento, ocurrió un error. Por favor, inténtalo de nuevo.\n\n_Error: ${error.message}_`;
+                }
+            };
+
+            document.querySelectorAll('.gemini-button').forEach(button => {
+                button.addEventListener('click', async () => {
+                    const type = button.dataset.promptType;
+                    const context = button.dataset.context;
+                    let prompt = '';
+                    let title = '';
+
+                    if (type === 'code') {
+                        title = `Ejemplo de Código: ${context}`;
+                        prompt = `Genera un ejemplo de código Python bien comentado y conciso para un modelo de clasificación de texto usando ${context}. Usa Scikit-Learn para modelos de ML tradicionales y TensorFlow/Keras para modelos de Deep Learning. El código debe ser autocontenido, incluir importaciones, datos de ejemplo simples, la definición del modelo, el entrenamiento y una predicción de ejemplo. Formatea la respuesta completa como un bloque de código Python markdown, y solo el código, sin texto explicativo adicional fuera del bloque de código.`;
+                    } else if (type === 'explain') {
+                        title = `Explicando: ${context}`;
+                        prompt = `Explica el concepto de "${context}" aplicado al Procesamiento del Lenguaje Natural como si fuera para un desarrollador que está empezando. Usa una analogía simple, describe sus componentes clave y menciona por qué es útil. Usa markdown para formatear la respuesta con negritas y listas si es necesario. No uses bloques de código.`;
+                    }
+
+                    modalTitle.textContent = title;
+                    modalResponse.innerHTML = '';
+                    modalLoader.style.display = 'flex';
+                    showModal();
+
+                    const responseText = await callGemini(prompt);
+                    const cleanedText = responseText.replace(/^```python\n?|```$/g, '');
+                    
+                    if (type === 'code') {
+                         modalResponse.innerHTML = `<pre><code>${cleanedText}</code></pre>`;
+                    } else {
+                         modalResponse.innerHTML = `<p>${cleanedText.replace(/\n\n/g, '<br><br>').replace(/\n/g, '<br>')}</p>`;
+                    }
+                   
+                    modalLoader.style.display = 'none';
+                });
+            });
+        });
+    </script>
+</body>
+</html>
