@@ -7,10 +7,11 @@ Este proyecto es una aplicación de escritorio para clasificar currículums medi
 - Python 3.8 o superior
 - Las dependencias listadas en `requirements.txt`
 
+- Dependencias de desarrollo en `requirements-dev.txt` (opcional)
 ## Instalación
-
 ```bash
 pip install -r requirements.txt
+pip install -r requirements-dev.txt  # opcional
 ```
 
 ## Ejecución
@@ -18,7 +19,7 @@ pip install -r requirements.txt
 Para iniciar la interfaz principal:
 
 ```bash
-python main_gui.PY
+python main_gui.py
 ```
 
 También se incluyen scripts bajo `page/` para exponer una API web basada en Flask.
@@ -27,11 +28,12 @@ variable de entorno `API_PORT` antes de ejecutarla.
 
 ## Estructura del proyecto
 
-- `main_gui.PY` – ventana principal de la aplicación.
+- `main_gui.py` – ventana principal de la aplicación.
 - `entrenamiento_vistas/` – vistas para entrenar modelos.
 - `models/` – lógica de entrenamiento y gestión de modelos ML/DL.
 - `page/` – scripts y recursos para la API y páginas auxiliares.
 - `docs/` – documentación HTML extendida.
+La ruta de la base de datos puede configurarse con la variable de entorno `DB_PATH`.
 
 ## Contribución
 

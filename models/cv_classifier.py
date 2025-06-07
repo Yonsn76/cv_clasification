@@ -17,6 +17,10 @@ from sklearn.metrics import classification_report, accuracy_score
 from sklearn.preprocessing import LabelEncoder
 import joblib
 import datetime
+import logging
+from src.config import logging_config  # noqa: F401
+
+logger = logging.getLogger(__name__)
 
 class CVClassifier:
     """Clasificador simplificado de CVs por profesiones"""
@@ -49,14 +53,14 @@ class CVClassifier:
         texts = df['text'].tolist()
         professions = df['profession'].tolist()
         
-        print(f"Datos preparados: {len(texts)} CVs, {len(set(professions))} profesiones")
-        print(f"Profesiones: {set(professions)}")
+        logger.info(f"Datos preparados: {len(texts)} CVs, {len(set(professions))} profesiones")
+        logger.info(f"Profesiones: {set(professions)}")
         
         return texts, professions
     
     def train_model(self, cv_data, test_size=0.2, model_type='random_forest'):
         """Entrena el modelo de clasificación"""
-        print("=== INICIANDO ENTRENAMIENTO ===")
+        logger.info("=== INICIANDO ENTRENAMIENTO ===")
         
         # Preparar datos
         texts, professions = self.prepare_training_data(cv_data)
@@ -65,7 +69,7 @@ class CVClassifier:
             raise ValueError("Se necesitan al menos 2 profesiones diferentes para entrenar")
         
         # Vectorizar textos
-        print("Vectorizando textos...")
+        logger.info("Vectorizando textos...")
 
         # Ajustar parámetros según el tamaño del dataset
         min_df = 1 if len(texts) < 10 else 2
@@ -85,8 +89,8 @@ class CVClassifier:
         self.label_encoder = LabelEncoder()
         y = self.label_encoder.fit_transform(professions)
         
-        print(f"Características extraídas: {X.shape[1]}")
-        print(f"Clases: {self.label_encoder.classes_}")
+        logger.info(f"Características extraídas: {X.shape[1]}")
+        logger.info(f"Clases: {self.label_encoder.classes_}")
         
         # Dividir datos
         if len(texts) > 4:  # Solo dividir si hay suficientes datos
@@ -97,10 +101,10 @@ class CVClassifier:
             # Con pocos datos, usar todo para entrenamiento
             X_train, X_test = X, X
             y_train, y_test = y, y
-            print("⚠️ Pocos datos: usando todo el dataset para entrenamiento y prueba")
+            logger.info("⚠️ Pocos datos: usando todo el dataset para entrenamiento y prueba")
         
         # Entrenar modelo
-        print(f"Entrenando modelo {model_type}...")
+        logger.info(f"Entrenando modelo {model_type}...")
 
         if model_type == 'random_forest':
             self.classifier = RandomForestClassifier(
@@ -141,10 +145,10 @@ class CVClassifier:
         y_pred = self.classifier.predict(X_test)
         accuracy = accuracy_score(y_test, y_pred)
         
-        print(f"\n=== RESULTADOS DEL ENTRENAMIENTO ===")
-        print(f"Precisión: {accuracy:.3f}")
-        print(f"Datos de entrenamiento: {X_train.shape[0]}")
-        print(f"Datos de prueba: {X_test.shape[0]}")
+        logger.info(f"\n=== RESULTADOS DEL ENTRENAMIENTO ===")
+        logger.info(f"Precisión: {accuracy:.3f}")
+        logger.info(f"Datos de entrenamiento: {X_train.shape[0]}")
+        logger.info(f"Datos de prueba: {X_test.shape[0]}")
         
         # Reporte detallado
         if len(set(y_test)) > 1:  # Solo si hay múltiples clases en test
@@ -153,8 +157,8 @@ class CVClassifier:
                 target_names=self.label_encoder.classes_,
                 zero_division=0
             )
-            print("\nReporte de clasificación:")
-            print(report)
+            logger.info("\nReporte de clasificación:")
+            logger.info(report)
         
         self.is_trained = True
         
@@ -229,28 +233,28 @@ class CVClassifier:
     def save_model(self, model_name='cv_classifier'):
         """Guarda el modelo entrenado y sus componentes"""
         if not self.is_trained:
-            print("❌ El modelo no está entrenado")
+            logger.info("❌ El modelo no está entrenado")
             return False
 
         try:
-            print(f"\\n=== Guardando modelo '{model_name}' ===")
+            logger.info(f"\\n=== Guardando modelo '{model_name}' ===")
             
             # Crear directorio para el modelo
             model_folder = os.path.join(self.model_dir, model_name)
             os.makedirs(model_folder, exist_ok=True)
-            print(f"📁 Directorio del modelo: {model_folder}")
+            logger.info(f"📁 Directorio del modelo: {model_folder}")
 
             # Guardar modelo
             joblib.dump(self.classifier, os.path.join(model_folder, 'classifier.pkl'))
-            print("✅ Clasificador guardado")
+            logger.info("✅ Clasificador guardado")
 
             # Guardar vectorizer
             joblib.dump(self.vectorizer, os.path.join(model_folder, 'vectorizer.pkl'))
-            print("✅ Vectorizer guardado")
+            logger.info("✅ Vectorizer guardado")
 
             # Guardar encoder
             joblib.dump(self.label_encoder, os.path.join(model_folder, 'encoder.pkl'))
-            print("✅ Encoder guardado")
+            logger.info("✅ Encoder guardado")
 
             # Guardar metadatos
             metadata = {
@@ -263,69 +267,69 @@ class CVClassifier:
                 'is_deep_learning': False
             }
             joblib.dump(metadata, os.path.join(model_folder, 'metadata.pkl'))
-            print("✅ Metadatos guardados")
+            logger.info("✅ Metadatos guardados")
 
-            print(f"\\n✅ Modelo '{model_name}' guardado exitosamente")
+            logger.info(f"\\n✅ Modelo '{model_name}' guardado exitosamente")
             return True
 
         except Exception as e:
-            print(f"❌ Error guardando modelo: {str(e)}")
+            logger.info(f"❌ Error guardando modelo: {str(e)}")
             import traceback
-            print(f"Traceback: {traceback.format_exc()}")
+            logger.info(f"Traceback: {traceback.format_exc()}")
             return False
 
     def load_model(self, model_name='cv_classifier'):
         """Carga un modelo guardado"""
         try:
-            print(f"\\n=== Cargando modelo '{model_name}' ===")
+            logger.info(f"\\n=== Cargando modelo '{model_name}' ===")
             
             # Verificar que existe el directorio del modelo
             model_folder = os.path.join(self.model_dir, model_name)
             if not os.path.exists(model_folder):
-                print(f"❌ No se encontró el directorio del modelo: {model_folder}")
+                logger.info(f"❌ No se encontró el directorio del modelo: {model_folder}")
                 return False
 
             # Cargar metadatos
             metadata_path = os.path.join(model_folder, 'metadata.pkl')
             if os.path.exists(metadata_path):
                 metadata = joblib.load(metadata_path)
-                print("✅ Metadatos cargados")
-                print(f"   Tipo de modelo: {metadata.get('model_type', 'Unknown')}")
-                print(f"   Profesiones: {len(metadata.get('classes', []))}")
+                logger.info("✅ Metadatos cargados")
+                logger.info(f"   Tipo de modelo: {metadata.get('model_type', 'Unknown')}")
+                logger.info(f"   Profesiones: {len(metadata.get('classes', []))}")
 
             # Cargar modelo
             classifier_path = os.path.join(model_folder, 'classifier.pkl')
             if not os.path.exists(classifier_path):
-                print(f"❌ No se encontró el clasificador: {classifier_path}")
+                logger.info(f"❌ No se encontró el clasificador: {classifier_path}")
                 return False
             self.classifier = joblib.load(classifier_path)
-            print("✅ Clasificador cargado")
+            logger.info("✅ Clasificador cargado")
 
             # Cargar vectorizer
             vectorizer_path = os.path.join(model_folder, 'vectorizer.pkl')
             if not os.path.exists(vectorizer_path):
-                print(f"❌ No se encontró el vectorizer: {vectorizer_path}")
+                logger.info(f"❌ No se encontró el vectorizer: {vectorizer_path}")
                 return False
             self.vectorizer = joblib.load(vectorizer_path)
-            print("✅ Vectorizer cargado")
+            logger.info("✅ Vectorizer cargado")
 
             # Cargar encoder
             encoder_path = os.path.join(model_folder, 'encoder.pkl')
             if not os.path.exists(encoder_path):
-                print(f"❌ No se encontró el encoder: {encoder_path}")
+                logger.info(f"❌ No se encontró el encoder: {encoder_path}")
                 return False
             self.label_encoder = joblib.load(encoder_path)
-            print("✅ Encoder cargado")
+            logger.info("✅ Encoder cargado")
 
             self.is_trained = True
-            print(f"\\n✅ Modelo '{model_name}' cargado exitosamente")
-            print(f"   Profesiones disponibles: {list(self.label_encoder.classes_)}")
+            logger.info(f"\\n✅ Modelo '{model_name}' cargado exitosamente")
+            logger.info(f"   Profesiones disponibles: {list(self.label_encoder.classes_)}")
             return True
 
         except Exception as e:
-            print(f"❌ Error cargando modelo: {str(e)}")
+            logger.info(f"❌ Error cargando modelo: {str(e)}")
             import traceback
-            print(f"Traceback: {traceback.format_exc()}")
+            logger.info(f"Traceback: {traceback.format_exc()}")
             return False
 
     def get_model_info(self):
@@ -389,7 +393,7 @@ class CVClassifier:
                                 'is_deep_learning': False
                             })
                     except Exception as e:
-                        print(f"Error leyendo metadatos de {item}: {e}")
+                        logger.info(f"Error leyendo metadatos de {item}: {e}")
                         continue
 
         # Modelos de Deep Learning
@@ -413,7 +417,7 @@ class CVClassifier:
                                 'is_deep_learning': True
                             })
                     except Exception as e:
-                        print(f"Error leyendo metadatos DL de {item}: {e}")
+                        logger.info(f"Error leyendo metadatos DL de {item}: {e}")
                         continue
 
         return sorted(models, key=lambda x: x['creation_date'], reverse=True)
@@ -430,11 +434,11 @@ class CVClassifier:
 
                 if os.path.exists(model_folder):
                     shutil.rmtree(model_folder)
-                    print(f"✅ Modelo Deep Learning '{model_name}' eliminado")
-                    print(f"   Carpeta eliminada: {model_folder}")
+                    logger.info(f"✅ Modelo Deep Learning '{model_name}' eliminado")
+                    logger.info(f"   Carpeta eliminada: {model_folder}")
                     return True
                 else:
-                    print(f"⚠️ No se encontró la carpeta del modelo DL '{model_name}'")
+                    logger.info(f"⚠️ No se encontró la carpeta del modelo DL '{model_name}'")
                     return False
             else:
                 # Eliminar carpeta completa del modelo tradicional
@@ -442,15 +446,15 @@ class CVClassifier:
 
                 if os.path.exists(model_folder):
                     shutil.rmtree(model_folder)
-                    print(f"✅ Modelo tradicional '{model_name}' eliminado")
-                    print(f"   Carpeta eliminada: {model_folder}")
+                    logger.info(f"✅ Modelo tradicional '{model_name}' eliminado")
+                    logger.info(f"   Carpeta eliminada: {model_folder}")
                     return True
                 else:
-                    print(f"⚠️ No se encontró la carpeta del modelo '{model_name}'")
+                    logger.info(f"⚠️ No se encontró la carpeta del modelo '{model_name}'")
                     return False
 
         except Exception as e:
-            print(f"❌ Error eliminando modelo '{model_name}': {e}")
+            logger.info(f"❌ Error eliminando modelo '{model_name}': {e}")
             import traceback
-            print(f"Traceback: {traceback.format_exc()}")
+            logger.info(f"Traceback: {traceback.format_exc()}")
             return False

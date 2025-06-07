@@ -20,10 +20,10 @@ from PyQt6.QtCore import QUrl
 
 
 # --- Importar las vistas desde sus archivos separados ---
-from entrenar_vista import seleccion 
-from vista_herramientas import VistaHerramientas
-from vista_centro_accion import VistaCentroAccion
-from vista_importar_exportar import VistaImportarExportar
+from app.entrenar_vista import seleccion
+from app.vista_herramientas import VistaHerramientas
+from app.vista_centro_accion import VistaCentroAccion
+from app.vista_importar_exportar import VistaImportarExportar
 from models.model_manager import ModelManager, ModelMetadata # Añadido
 
 # --- Icon Resource Function ---
